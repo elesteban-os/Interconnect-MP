@@ -3,22 +3,25 @@
 #include <cstdint>
 
 // Declaracion de constantes del sistema
-#define READ_BYTE_CRITIC_TIME 50 // 50ns
-#define WRITE_BYTE_CRITIC_TIME 60 // 60ns
+#define READ_CYCLES 8 // 50ns
+#define WRITE_CYCLES 8 // 60ns
 
-// Respuesta de la lectura
+// Tipos de interaccion con memoria
+enum operation_type {READ, WRITE};
+
+// Respuesta de la operacion
 typedef struct data_resp {
     
 };
 
-// Respuesta de la lectura
+// Estructura de la operacion
 typedef struct operation {
-    // tipo de operacion, dato leido/escrito, tamano
-    enum type {READ, WRITE};
-    type op_type;
+    int pe_ID;
+    operation_type op_type;
     int address;
-    uint32_t data;
-    // time, cycle, peid??
+    int blocks;
+    block *write_data;
+    int start_cycle;
 };
 
 // Definición de la estructura block
@@ -32,7 +35,9 @@ class Memory {
 private:
     block memory[4096]; // 4096 posiciones de memoria con 4 bytes cada una
     bool op_ready = true;
-    operation memory_operation = NULL;
+    operation* memory_operation = nullptr;
+    data_resp* data_response = nullptr;
+    int cycle;
 
 public:
     Memory() {
@@ -43,27 +48,82 @@ public:
     }
 
     int update() {
+        this->cycle++;
+        if (this->operationUpdate()) {
+            responseCreator();
+        }
 
     }
 
-    // Es el equivalente a Read_Mem. Se debe hacer con
-    int requestData(uint32_t address, int src, int blocks) {
-        if (this->op_ready) {
-            if (this->address < 0x1000) { // Verifica que la dirección esté dentro del rango
-                this->op_ready = false
-                return 0; // Retorna 0 si la operación fue exitosa
+    int responseCreator() {
+        if (this->memory_operation->op_type == READ) {
+            // Se hace la lectura de la informacion guardada en operation
+        } else {
+            // Se hace la escritura de la informacion guardada en operation
+        }
+    }
+
+    // Esta funcion hace que no se tenga la informacion de lectura o escritura hasta 
+    // que se pasen los ciclos
+    int operationUpdate() {
+        if (!this->op_ready) {
+            if (this->cycle > this->cycle + this->memory_operation->start_cycle) {
+                this->op_ready = true;
+                return 1;
             } else {
-                std::cerr << "Error: Address out of range." << std::endl;
+                return 0;
+            }
+        } else {
+            return -1;
+        }
+        
+    }
+
+    // Es el equivalente a Read_Mem
+    int readData(uint32_t address, int peid_src, int blocks) {
+        if (this->op_ready) {
+            if (address < 0x1000) { // Verifica que la dirección esté dentro del rango
+                this->op_ready = false;
+                // Hacer una nueva operacion
+                this->memory_operation = new operation;
+                this->memory_operation->address = address;
+                this->memory_operation->pe_ID = peid_src;
+                this->memory_operation->blocks = blocks;
+                this->memory_operation->op_type = READ;
+                return 1; // Retorna 1 si el request se hizo
+            } else {
+                std::cout << "Error: Address out of range." << std::endl;
                 return -1; // Retorna -1 si hubo un error
             }
         }
-        // Se esta realizando una operacion
-        else return -1;
+        // Se esta realizando una operacion entonces retorna 0
+        else return 0;
+    }
+
+    // Es el equivalente a Write_Mem
+    int writeData(uint32_t address, int peid_src, block *data) {
+        if (this->op_ready) {
+            if (address < 0x1000) { // Verifica que la dirección esté dentro del rango
+                this->op_ready = false;
+                // Hacer una nueva operacion
+                this->memory_operation = new operation;
+                this->memory_operation->address = address;
+                this->memory_operation->pe_ID = peid_src;
+                this->memory_operation->write_data = data;
+                this->memory_operation->op_type = WRITE;
+                return 1; // Retorna 1 si el request se hizo
+            } else {
+                std::cout << "Error: Address out of range." << std::endl;
+                return -1; // Retorna -1 si hubo un error
+            }
+        }
+        // Se esta realizando una operacion entonces retorna 0
+        else return 0;
     }
 
     
     uint32_t getWord(uint32_t address) {
-        if (this->address < 0x1000) { // Verifica que la dirección esté dentro del rango
+        if (address < 0x1000) { // Verifica que la dirección esté dentro del rango
             return this->memory[address].word; // Retorna el bloque de 32 bits
         } else {
             std::cerr << "Error: Address out of range." << std::endl;
