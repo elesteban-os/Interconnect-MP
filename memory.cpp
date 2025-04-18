@@ -147,7 +147,7 @@ public:
     int readData(uint32_t address, int peid_src, int blocks, int QoS) {
         std::cout << "Function readData() called. Address: " << address << ", PE ID: " << peid_src << ", Blocks: " << blocks << std::endl;
         if (this->op_ready) {
-            if (address < 0x1000) { // Verifica que la dirección esté dentro del rango
+            if ((address + (blocks * 4)) < 0x4000) { // Verifica que la dirección esté dentro del rango
                 this->op_ready = false;
                 // Hacer una nueva operacion
                 this->memory_operation = new operation;
@@ -175,11 +175,11 @@ public:
     int writeData(uint32_t address, int peid_src, block *data, int blocks, int QoS) {
         std::cout << "Function writeData() called. Address: " << address << ", PE ID: " << peid_src << ", Blocks: " << blocks << std::endl;
         if (this->op_ready) {
-            if ((address < 0x1000) || ((address + (blocks * 8)) > 0x1000)) { // Verifica que la dirección esté dentro del rango
+            if ((address + (blocks * 4)) < 0x4000) { // Verifica que la dirección esté dentro del rango
                 this->op_ready = false;
                 // Hacer una nueva operacion
                 this->memory_operation = new operation;
-                this->memory_operation->address = address;
+                this->memory_operation->address = address / 4;
                 this->memory_operation->pe_ID = peid_src;
                 this->memory_operation->write_data = data;
                 this->memory_operation->op_type = WRITE;
@@ -203,7 +203,7 @@ public:
 
     uint32_t getWord(uint32_t address) {
         std::cout << "Function getWord() called. Address: " << address << std::endl;
-        if (address < 0x1000) { // Verifica que la dirección esté dentro del rango
+        if (address < 0x4000) { // Verifica que la dirección esté dentro del rango
             std::cout << "Returning word from memory." << std::endl;
             return this->memory[address].word; // Retorna el bloque de 32 bits
         } else {
@@ -253,8 +253,10 @@ int main() {
     }
     wrtdata -= 3;
 
+    block *wrtdata2 = new block[3];
     mem.writeData(0x0008, 1, wrtdata, 3, 1);
-    for(int i = 0; i <= 9; i++) {
+    for(int i = 0; i <= 8; i++) {
+        mem.writeData(0x0008, 1, wrtdata2, 3, 1);
         mem.update();
     }
 
@@ -305,11 +307,11 @@ int main() {
     }
     wrtdata -= 2;
 
-    mem.writeData(0x0008, 1, wrtdata, 2, 1);
+    mem.writeData(0x0004, 1, wrtdata, 2, 1);
     for(int i = 0; i <= 9; i++) {
         mem.update();
     }
-    mem.readData(0x0008, 1, 3, 3);
+    mem.readData(0x0000, 1, 5, 3);
     for(int i = 0; i <= 8; i++) {
         mem.update();
     }
