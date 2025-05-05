@@ -1,65 +1,53 @@
-#include <array>
 #include <iostream>
-#include <pthread.h>
-#include <unistd.h> // Para usar sleep()
 #include "PE_class.cpp"
 
-// número de PEs
-constexpr int NUM_PES = 8;
+int main() {
+    
+    // Crear un objeto PE
+    PE pe(0);
+    
+    // Datos para llenar la caché (16 bytes por línea)
+    uint8_t data[Cache::BLOCK_SIZE];
+    for (int i = 0; i < Cache::BLOCK_SIZE; ++i) {
+        data[i] = i + 1; // Llenar con números del 1 al 16
+    }
 
-// estructura para pasar datos a los hilos
-struct PEThreadData {
-    PE* pe;
-    int id;
-};
+    // Llenar las 128 líneas de la caché
+    for (int i = 0; i < Cache::BLOCKS; ++i) {
+        std::cout << "Escribiendo en la línea de caché " << i << "...\n";
+        pe.readResp(data, sizeof(data)); // Usar readResp para escribir en la caché
+    }
 
-// función que ejecutará cada hilo
-void* peTask(void* arg) {
-    PEThreadData* data = static_cast<PEThreadData*>(arg);
-    PE* pe = data->pe;
-    int id = data->id;
+    // Escribir dos líneas adicionales para comprobar el sistema FIFO
+    uint8_t extraData1[20] = {101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120};
+    uint8_t extraData2[Cache::BLOCK_SIZE] = {201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216};
 
-    // datos a escribir en la caché (puede ser cualquier numero pero se escoge el id del PE +1+2+3 para que no se repitan)
-    uint8_t writeData[Cache::BLOCK_SIZE] = {static_cast<uint8_t>(id), static_cast<uint8_t>(id + 1), static_cast<uint8_t>(id + 2)};
-    uint8_t readData[Cache::BLOCK_SIZE] = {0}; // buffer para leer datos inicializado a cero
+    std::cout << "Escribiendo línea adicional 1 (FIFO)...\n";
+    pe.readResp(extraData1, sizeof(extraData1)); // Escribir línea adicional 1
 
-    // escribir en la caché
-    std::cout << "PE " << id << " escribiendo en su caché...\n";
-    pe->cache.write(0, writeData, 3);
-    sleep(1); // Delay de 1 segundo
+    std::cout << "Escribiendo línea adicional 2 (FIFO)...\n";
+    pe.readResp(extraData2, sizeof(extraData2)); // Escribir línea adicional 2
 
-    // leer de la caché
-    std::cout << "PE " << id << " leyendo de su caché...\n";
-    pe->cache.read(0, readData, 3);
-    sleep(1); // Delay de 1 segundo
+    // Verificar el contenido de la caché
+    uint8_t buffer[Cache::BLOCK_SIZE];
+    for (int i = 0; i < Cache::BLOCKS; ++i) {
+        pe.cache.read(i, buffer, Cache::BLOCK_SIZE);
+        std::cout << "Contenido de la línea " << i << ": ";
+        for (int j = 0; j < Cache::BLOCK_SIZE; ++j) {
+            std::cout << static_cast<int>(buffer[j]) << " ";
+        }
+        std::cout << "\n";
+    }
 
-    // mostrar los datos leídos
-    std::cout << "PE " << id << " datos leídos: ";
-    for (int i = 0; i < 3; ++i) {
-        std::cout << static_cast<int>(readData[i]) << " "; // se hace cast de uint8_t a int para mostrar el valor en consola
+    
+    WRITE_MEM msg = pe.writeMem(pe.id, 4096, 3, 0, 1); // Llamar a la función writeMem y guardar el mensaje
+    std::cout << "PE " << pe.id << " mensaje enviado: SRC=" << static_cast<int>(msg.SRC) << ", ADDR=" << static_cast<int>(msg.ADDR) << ", NUM_CACHE_LINES=" << static_cast<int>(msg.NUM_CACHE_LINES)
+              << ", START_CACHE_LINE=" << static_cast<int>(msg.START_CACHE_LINE) << ", QoS=" << static_cast<int>(msg.QoS) << "\n";
+    std::cout << "PE " << pe.id << " datos a escribir: ";
+    for (int i = 0; i < msg.NUM_CACHE_LINES * Cache::BLOCK_SIZE; ++i) {
+        std::cout << static_cast<int>(msg.data[i]) << " "; // se hace cast de uint8_t a int para mostrar el valor en consola
     }
     std::cout << "\n";
-
-    return nullptr;
-}
-
-int main() {
-    // crear 8 PEs
-    std::array<PE, NUM_PES> pes = {PE(0), PE(1), PE(2), PE(3), PE(4), PE(5), PE(6), PE(7)};
-
-    // crear hilos
-    pthread_t threads[NUM_PES];
-    PEThreadData threadData[NUM_PES];
-
-    for (int i = 0; i < NUM_PES; ++i) {
-        threadData[i] = {&pes[i], i};
-        pthread_create(&threads[i], nullptr, peTask, &threadData[i]);
-    }
-
-    // esperar a que todos los hilos terminen
-    for (int i = 0; i < NUM_PES; ++i) {
-        pthread_join(threads[i], nullptr);
-    }
 
     return 0;
 }
