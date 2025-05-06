@@ -1,6 +1,6 @@
 
 #include <iostream>
-#include "schedulers/scheduler.cpp"
+#include "schedulers/scheduler.h"
 #include "memory.cpp"
 
 class ExecuteUnit {

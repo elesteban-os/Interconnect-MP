@@ -1,6 +1,7 @@
 
 #include "memory.h"
 #include "executeunit.cpp"
+#include "messagemanagement.cpp"
 
 // Usando calendarizador, memoria y unidad de ejecucion
 int main() {
