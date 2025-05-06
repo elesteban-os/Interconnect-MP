@@ -16,7 +16,7 @@ enum class MessageType {
 
 // Estructuras de datos
 struct WriteMem {
-    uint8_t src;
+    uint32_t src;
     uint32_t addr;
     uint8_t num_of_cache_lines;
     uint8_t start_cache_line;
@@ -24,49 +24,44 @@ struct WriteMem {
 };
 
 struct ReadMem {
-    uint8_t src;
+    uint32_t src;
     uint32_t addr;
     uint32_t size;
     uint8_t qos;
 };
 
 struct BroadcastInvalidate {
-    uint8_t src;
+    uint32_t src;
     uint8_t cache_line;
     uint8_t qos;
 };
 
 using Message = std::variant<WriteMem, ReadMem, BroadcastInvalidate>;
 
-// Interconnect
-class Interconnect {
-public:
-    void process(const Message& msg) {
-        std::visit([&](auto&& m) { handle(m); }, msg);
-    }
 
-private:
-    void handle(const WriteMem& m) {
-        std::cout << "[WRITE_MEM] SRC: 0x" << std::hex << +m.src
-                  << " ADDR: 0x" << m.addr
-                  << " LINES: " << +m.num_of_cache_lines
-                  << " START: 0x" << +m.start_cache_line
-                  << " QoS: " << +m.qos << '\n';
-    }
+// Función que procesa cualquier tipo de mensaje
+void process_message(const Message& msg) {
+    std::visit([](auto&& m) {
+        using T = std::decay_t<decltype(m)>;
+        if constexpr (std::is_same_v<T, WriteMem>) {
+            std::cout << "[WRITE_MEM] SRC: 0x" << std::hex << m.src
+                      << " ADDR: 0x" << m.addr
+                      << " LINES: " << +m.num_of_cache_lines
+                      << " START: 0x" << +m.start_cache_line
+                      << " QoS: " << +m.qos << '\n';
+        } else if constexpr (std::is_same_v<T, ReadMem>) {
+            std::cout << "[READ_MEM] SRC: 0x" << std::hex << m.src
+                      << " ADDR: 0x" << m.addr
+                      << " SIZE: " << std::dec << m.size
+                      << " QoS: " << std::hex << +m.qos << '\n';
+        } else if constexpr (std::is_same_v<T, BroadcastInvalidate>) {
+            std::cout << "[BROADCAST_INVALIDATE] SRC: 0x" << std::hex << m.src
+                      << " CACHE_LINE: 0x" << +m.cache_line
+                      << " QoS: " << +m.qos << '\n';
+        }
+    }, msg);
+}
 
-    void handle(const ReadMem& m) {
-        std::cout << "[READ_MEM] SRC: 0x" << std::hex << +m.src
-                  << " ADDR: 0x" << m.addr
-                  << " SIZE: " << std::dec << m.size
-                  << " QoS: " << std::dec << +m.qos << '\n';
-    }
-
-    void handle(const BroadcastInvalidate& m) {
-        std::cout << "[BROADCAST_INVALIDATE] SRC: 0x" << std::hex << +m.src
-                  << " CACHE_LINE: 0x" << +m.cache_line
-                  << " QoS: " << +m.qos << '\n';
-    }
-};
 
 // Función auxiliar para convertir strings
 uint32_t parse_value(const std::string& token) {
@@ -74,7 +69,8 @@ uint32_t parse_value(const std::string& token) {
 }
 
 // Función principal de carga de instrucciones
-void process_instructions(const std::string& filename, Interconnect& ic) {
+std::vector<Message> load_messages_from_file(const std::string& filename) {
+    std::vector<Message> messages;
     std::ifstream file(filename);
     std::string line;
 
@@ -90,7 +86,6 @@ void process_instructions(const std::string& filename, Interconnect& ic) {
         std::string token;
         ss >> token;
 
-        // Saltar líneas tipo PE2 (no se usan como source)
         if (token.rfind("PE", 0) == 0) continue;
 
         if (token == "WRITE_MEM") {
@@ -103,7 +98,7 @@ void process_instructions(const std::string& filename, Interconnect& ic) {
             wm.num_of_cache_lines = parse_value(lines_s);
             wm.start_cache_line = parse_value(start_s);
             wm.qos = parse_value(qos_s);
-            ic.process(wm);
+            messages.push_back(wm);
 
         } else if (token == "READ_MEM") {
             std::string src_s, addr_s, size_s, qos_s;
@@ -114,7 +109,7 @@ void process_instructions(const std::string& filename, Interconnect& ic) {
             rm.addr = parse_value(addr_s);
             rm.size = parse_value(size_s);
             rm.qos = parse_value(qos_s);
-            ic.process(rm);
+            messages.push_back(rm);
 
         } else if (token == "BROADCAST_INVALIDATE") {
             std::string src_s, cl_s, qos_s;
@@ -124,15 +119,24 @@ void process_instructions(const std::string& filename, Interconnect& ic) {
             bi.src = parse_value(src_s);
             bi.cache_line = parse_value(cl_s);
             bi.qos = parse_value(qos_s);
-            ic.process(bi);
+            messages.push_back(bi);
         }
     }
+
+    return messages;
 }
+
+
 
 
 
 int main() {
-    Interconnect ic;
-    process_instructions("instrucciones.txt", ic);
+    std::vector<Message> msgs = load_messages_from_file("instrucciones.txt");
+
+    // Verifica los mensajes cargados
+    for (const auto& msg : msgs) {
+        process_message(msg);  
+    }
     return 0;
 }
+
