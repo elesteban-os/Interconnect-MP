@@ -3,7 +3,6 @@
 
 #include "schedulers/scheduler.h"
 #include "datamessages.h"
-#include "temppe.cpp"
 #include <mutex>
 
 // Forward declarations for message types
@@ -25,10 +24,10 @@ class MessageManagementUnit {
                               std::mutex* opSchedulerMutex, std::mutex* respSchedulerMutex);
 
         // Methods for processing different message types
-        void processMessage(READ_MEM* readMessage);
-        void processMessage(WRITE_MEM* writeMessage);
-        void processMessage(BROADCAST_INVALIDATE* readMessage);
-        void processMessage(INV_ACK* readMessage);
+        void processMessage(READ_MEM readMessage);
+        void processMessage(WRITE_MEM writeMessage);
+        void processMessage(BROADCAST_INVALIDATE readMessage);
+        void processMessage(INV_ACK readMessage);
         void update();
 };
 

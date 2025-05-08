@@ -13,30 +13,30 @@ MessageManagementUnit::MessageManagementUnit(Scheduler<operation>* opScheduler, 
 }
 
 // Method for processing READ_MEM messages
-void MessageManagementUnit::processMessage(READ_MEM* readMessage) {
+void MessageManagementUnit::processMessage(READ_MEM readMessage) {
     std::lock_guard<std::mutex> lock(*operationSchedulerMutex); // Lock the mutex
     operation newOperation;
-    newOperation.pe_ID = readMessage->SRC;
+    newOperation.pe_ID = readMessage.SRC;
     newOperation.op_type = operation_type::READ;
-    newOperation.address = readMessage->ADDR;
-    newOperation.blocks = readMessage->SIZE / 4; // Convert bytes to blocks
-    newOperation.QoS = readMessage->QoS;
+    newOperation.address = readMessage.ADDR;
+    newOperation.blocks = readMessage.SIZE / 4; // Convert bytes to blocks
+    newOperation.QoS = readMessage.QoS;
     operationScheduler->addOperation(newOperation);
 }
 
 // Method for processing WRITE_MEM messages
-void MessageManagementUnit::processMessage(WRITE_MEM* writeMessage) {
+void MessageManagementUnit::processMessage(WRITE_MEM writeMessage) {
     std::lock_guard<std::mutex> lock(*operationSchedulerMutex); // Lock the mutex
     operation newOperation;
-    newOperation.pe_ID = writeMessage->SRC;
+    newOperation.pe_ID = writeMessage.SRC;
     newOperation.op_type = operation_type::WRITE;
-    newOperation.address = writeMessage->ADDR;
-    newOperation.QoS = writeMessage->QoS;
-    newOperation.blocks = writeMessage->NUM_CACHE_LINES * 4; // One cache line = 16 bytes
+    newOperation.address = writeMessage.ADDR;
+    newOperation.QoS = writeMessage.QoS;
+    newOperation.blocks = writeMessage.NUM_CACHE_LINES * 4; // One cache line = 16 bytes
     newOperation.write_data = new block[newOperation.blocks];
     for (int i = 0; i < newOperation.blocks; ++i) {
         for (int j = 0; j < 4; ++j) {
-            newOperation.write_data[i].byte[j] = writeMessage->data[i * 4 + j]; // Copy data from the message
+            newOperation.write_data[i].byte[j] = writeMessage.data[i * 4 + j]; // Copy data from the message
         }
         
     }
@@ -53,34 +53,34 @@ void MessageManagementUnit::processMessage(WRITE_MEM* writeMessage) {
 }
 
 // Method for processing BROADCAST_INVALIDATE messages
-void MessageManagementUnit::processMessage(BROADCAST_INVALIDATE* readMessage) {
+void MessageManagementUnit::processMessage(BROADCAST_INVALIDATE readMessage) {
     std::lock_guard<std::mutex> lock(*responseSchedulerMutex); // Lock the mutex
     data_resp newResponse;
-    newResponse.pe_ID = readMessage->SRC;
+    newResponse.pe_ID = readMessage.SRC;
     newResponse.op_type = operation_type::CACHE_INVALIDATE;
-    newResponse.QoS = readMessage->QoS;
+    newResponse.QoS = readMessage.QoS;
     newResponse.data = new block[1]; // Create a block for the response
-    newResponse.data->byte[0] = readMessage->CACHE_LINE; // Store the cache line to invalidate
+    newResponse.data->byte[0] = readMessage.CACHE_LINE; // Store the cache line to invalidate
 
     // Add the new response to the scheduler
     responseScheduler->addOperation(newResponse);
 
-    std::cout << "Processing BROADCAST_INVALIDATE message from PE: " << (int)readMessage->SRC << std::endl;
+    std::cout << "Processing BROADCAST_INVALIDATE message from PE: " << (int)readMessage.SRC << std::endl;
 }
 
 // Method for processing INV_ACK messages
-void MessageManagementUnit::processMessage(INV_ACK* readMessage) {
+void MessageManagementUnit::processMessage(INV_ACK readMessage) {
     std::lock_guard<std::mutex> lock(*responseSchedulerMutex); // Lock the mutex
     data_resp newResponse;
-    newResponse.pe_ID = readMessage->SRC;
+    newResponse.pe_ID = readMessage.SRC;
     newResponse.op_type = operation_type::CACHE_ACK;
-    newResponse.QoS = readMessage->QoS;
-    newResponse.status = readMessage->STATUS; // Store the cache line status
+    newResponse.QoS = readMessage.QoS;
+    newResponse.status = readMessage.STATUS; // Store the cache line status
 
     // Add the new response to the scheduler
     responseScheduler->addOperation(newResponse);
 
-    std::cout << "Processing INV_ACK message from PE: " << (int)readMessage->SRC << std::endl;
+    std::cout << "Processing INV_ACK message from PE: " << (int)readMessage.SRC << std::endl;
 }
 
 // Metodo para actualizar la unidad con los mensajes de respuesta
