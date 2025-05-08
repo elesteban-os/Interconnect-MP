@@ -1,18 +1,21 @@
 
 #include <iostream>
 #include "schedulers/scheduler.h"
-#include "memory.cpp"
+#include "memory.h"
+#include <mutex>
 
 class ExecuteUnit {
     private:
         operation operationToMemory;
         Scheduler<operation>* operationScheduler = nullptr;
         Scheduler<data_resp>* responseScheduler = nullptr;
+        std::mutex* responseSchedulerMutex; // Mutex for thread safety
         Memory *memory = nullptr;
         bool busy = false;
 
     public:
-        ExecuteUnit(Scheduler<operation>* operationScheduler, Scheduler<data_resp>* respScheduler, Memory* mem) {
+        ExecuteUnit(Scheduler<operation>* operationScheduler, Scheduler<data_resp>* respScheduler, Memory* mem, std::mutex* respSchedulerMutex) {
+            this->responseSchedulerMutex = respSchedulerMutex;
             this->responseScheduler = respScheduler;
             this->operationScheduler = operationScheduler;
             this->memory = mem;
@@ -40,12 +43,15 @@ class ExecuteUnit {
                     executeOperation(op);
                 }
             } else if (memory->get_op_ready()) {
+                std::lock_guard<std::mutex> lock(*responseSchedulerMutex); // Lock the mutex
+
                 data_resp* response = memory->get_data_response();
                 responseScheduler->addOperation(*response);
                 this->busy = false;
 
                 // Eliminar operacion de la cola de operaciones
                 operationScheduler->popQueue();
+
             }
         }
 

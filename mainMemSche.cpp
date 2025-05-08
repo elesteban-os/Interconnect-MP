@@ -1,102 +1,74 @@
 
 #include "memory.h"
 #include "executeunit.cpp"
-#include "messagemanagement.cpp"
+#include "messagemanagement.h"
+#include "schedulers/scheduler.h"
+#include "datamessages.h"
 
-// Usando calendarizador, memoria y unidad de ejecucion
+// Prueba de calendarizador, memoria, unidad de ejecucion y unidad de gestion de mensajes
 int main() {
-    // Crear un scheduler
-    Scheduler<data_resp> schedulerResp(ScheduleType::PRIORITY);
-    Scheduler<operation> schedulerOperations(ScheduleType::PRIORITY);
+    // Crear instancias de los calendarizadores
+    Scheduler<operation> operationScheduler;
+    Scheduler<data_resp> responseScheduler;
+
+    // Crear mutexes para la sincronización
+    std::mutex operationSchedulerMutex;
+    std::mutex responseSchedulerMutex;
+
+    // Crear instancia de la unidad de gestión de mensajes
+    MessageManagementUnit messageManagementUnit(&operationScheduler, &responseScheduler, 
+                                                &operationSchedulerMutex, &responseSchedulerMutex);
+
+    // Crear memoria principal
+    Memory mainMemory;
+
+    // Crear una unidad de ejecución
+    ExecuteUnit executeUnit(&operationScheduler, &responseScheduler, &mainMemory, &responseSchedulerMutex);
     
-    // Crear una memoria
-    Memory mem;
-
-    // Crear una unidad de ejecucion
-    ExecuteUnit executeUnit(&schedulerOperations, &schedulerResp, &mem);
-
-    // Crear un vector de operaciones
-    std::vector<operation> operations;
-
-    // Crear operaciones de ejemplo
-    operation op1;
-    op1.pe_ID = 1;
-    op1.op_type = operation_type::READ;
-    op1.address = 0;
-    op1.blocks = 4;
-    op1.QoS = 10;
-    operations.push_back(op1);  
-
-    operation op2;
-    op2.pe_ID = 2;
-    op2.op_type = operation_type::WRITE;
-    op2.address = 4;
-    op2.blocks = 4;
-    op2.QoS = 0;
-    op2.write_data = new block[4];
-    for (int i = 0; i < 4; ++i) {
-        op2.write_data->word = 0x1000 + i; // Example data
-        op2.write_data++;
+    // Simular la llegada de mensajes
+    WRITE_MEM writeMessage(4, 16); // 4 cache lines, 16 bytes each
+    writeMessage.SRC = 1; // ID del PE que envía el mensaje
+    writeMessage.ADDR = 0x0000; // Dirección de memoria principal
+    writeMessage.QoS = 1; // Prioridad del mensaje
+    for (int i = 0; i < 32; ++i) {
+        writeMessage.data[i] = i; // Datos a escribir
     }
-    op2.write_data -= 4; // Reset pointer to the start of the data
-    operations.push_back(op2);
+    writeMessage.NUM_CACHE_LINES = 1; // Número de líneas de caché
+    writeMessage.START_CACHE_LINE = 0; // Línea de caché inicial
+    messageManagementUnit.processMessage(&writeMessage); // Procesar el mensaje de escritura
 
-    operation op3;
-    op3.pe_ID = 1;
-    op3.op_type = operation_type::READ;
-    op3.address = 1;
-    op3.blocks = 4;
-    op3.QoS = 3;
-    operations.push_back(op3);  
+    // Simular la llegada de un mensaje de invalidación
+    BROADCAST_INVALIDATE invalidateMessage;
+    invalidateMessage.SRC = 2; // ID del PE que envía el mensaje
+    invalidateMessage.CACHE_LINE = 0; // Línea de caché a invalidar
+    invalidateMessage.QoS = 1; // Prioridad del mensaje
+    messageManagementUnit.processMessage(&invalidateMessage); // Procesar el mensaje de invalidación
 
-    // Agregar operaciones al scheduler
-    for (const auto& op : operations) {
-        schedulerOperations.addOperation(op);
+    // Simular la llegada de un mensaje de reconocimiento de invalidación
+    INV_ACK ackMessage;
+    ackMessage.SRC = 3; // ID del PE que envía el mensaje
+    ackMessage.STATUS = 1; // Estado de la línea de caché (válida)
+    ackMessage.QoS = 1; // Prioridad del mensaje
+    messageManagementUnit.processMessage(&ackMessage); // Procesar el mensaje de reconocimiento de invalidación
+
+    // Simular la llegada de un mensaje de lectura
+    READ_MEM readMessage;
+    readMessage.SRC = 4; // ID del PE que envía el mensaje
+    readMessage.ADDR = 0x0004; // Dirección de memoria principal
+    readMessage.SIZE = 16; // Cantidad de bytes a leer
+    readMessage.QoS = 1; // Prioridad del mensaje
+    messageManagementUnit.processMessage(&readMessage); // Procesar el mensaje de lectura
+
+    // Actualizar todas las unidades varias veces       
+
+    for (int i = 0; i < 30; ++i) {
+        std::cout << "----- Ciclo: " << i << " -----" << std::endl;
+        mainMemory.update(); // Actualizar la memoria principal
+        executeUnit.update(); // Actualizar la unidad de ejecución
+        messageManagementUnit.update(); // Actualizar la unidad de gestión de mensajes
     }
-
-        // Simular la ejecución de las operaciones
-    for (int cycle = 0; cycle < 40; ++cycle) {
-        std::cout << "Cycle: " << cycle << std::endl;
-        mem.update();
-        executeUnit.update();
-        
-        // Wait for user input to proceed to the next cycle
-        //std::cout << "Press Enter to continue to the next cycle..." << std::endl;
-        //std::cin.get(); // Waits for the user to press Enter
-    }
-    
-    // Imprimir la memoria
-    std::cout << "Memory contents:" << std::endl;
-    for (int i = 0; i < 20; ++i) {
-        std::cout << "Address " << 4 * i << ": " << std::hex << mem.getWord(i) << std::endl;
-    }
-
-    // Ver contenido del calendarizador de respuestas
-    std::cout << "Response Scheduler contents:" << std::endl;
-    while (schedulerResp.getNextOperation().pe_ID != -1) {
-        // Get the next response from the scheduler
-        data_resp resp = schedulerResp.getNextOperation();
-
-        // Ver todos los datos posibles de la respuesta
-        std::cout << "Response PE ID: " << resp.pe_ID << std::endl;
-        std::cout << "Response QoS: " << resp.QoS << std::endl;
-        std::cout << "Response blocks: " << resp.blocks << std::endl;
-        std::cout << "Response status: " << (int)resp.status << std::endl;
-        std::cout << "Response data: ";
-        if (resp.data == nullptr) {
-            std::cout << "No data" << std::endl;
-        } else {
-            for (int i = 0; i < resp.blocks; ++i) {
-                std::cout << std::hex << resp.data[i].word << " ";
-            }
-            std::cout << std::endl;
-        }
-
-        // Pop the response from the scheduler
-        schedulerResp.popQueue();
-    }
-    
 
     return 0;
+    
 
 }

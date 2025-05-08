@@ -1,4 +1,8 @@
 #include "scheduler.h"
+#include "../datamessages.h"
+
+template class Scheduler<operation>;
+template class Scheduler<data_resp>;
 
 // Default constructor
 template <typename T>

@@ -95,10 +95,10 @@ int Memory::readData(uint32_t address, int peid_src, int blocks, int QoS) {
     std::cout << "Function readData() called. Address: " << address << ", PE ID: " << peid_src
               << ", Blocks: " << blocks << std::endl;
     if (this->op_ready) {
-        if ((address + (blocks * 4)) < 0x4000) {
+        if ((address + (blocks * 4)) < 0x4000 && (address % 4) == 0) {
             this->op_ready = false;
             this->memory_operation = new operation;
-            this->memory_operation->address = address;
+            this->memory_operation->address = address / 4;
             this->memory_operation->pe_ID = peid_src;
             this->memory_operation->blocks = blocks;
             this->memory_operation->op_type = operation_type::READ;
@@ -106,7 +106,7 @@ int Memory::readData(uint32_t address, int peid_src, int blocks, int QoS) {
             this->memory_operation->QoS = QoS;
             return 1;
         } else {
-            std::cout << "Error: Address out of range." << std::endl;
+            std::cout << "Error: Invalid address." << std::endl;
             return -1;
         }
     } else {
@@ -120,7 +120,7 @@ int Memory::writeData(uint32_t address, int peid_src, block* data, int blocks, i
     std::cout << "Function writeData() called. Address: " << address << ", PE ID: " << peid_src
               << ", Blocks: " << blocks << std::endl;
     if (this->op_ready) {
-        if ((address + (blocks * 4)) < 0x4000) {
+        if ((address + (blocks * 4)) < 0x4000 && (address % 4) == 0) {
             this->op_ready = false;
             this->memory_operation = new operation;
             this->memory_operation->address = address / 4;
@@ -132,7 +132,7 @@ int Memory::writeData(uint32_t address, int peid_src, block* data, int blocks, i
             this->memory_operation->QoS = QoS;
             return 1;
         } else {
-            std::cout << "Error: Address or size out of range." << std::endl;
+            std::cout << "Error: Invalid address." << std::endl;
             return -1;
         }
     } else {
