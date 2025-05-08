@@ -1,5 +1,19 @@
 #include "cache_class.cpp"
+#include "interpreter.cpp"
 #include <vector>
+#include <variant>
+// esto se quita en merge
+enum class OPERATION_TYPE_PE {RESP_READ, RESP_WRITE, CACHE_INVALIDATE, INV_COMPLETE};
+//esto se quita en merge
+struct DATA_RESP_PE {
+    uint8_t SRC;
+    uint8_t CACHE_LINE;
+    //uint8_t DEST; creo que este no se necesita
+    uint8_t STATUS; // para WRITE
+    uint8_t* DATA; // para READ
+    size_t DATA_SIZE; // para READ
+    OPERATION_TYPE_PE OPERATION_TYPE;;
+};
 
 /* struct de WRITE_MEM */
 struct WRITE_MEM {
@@ -35,7 +49,11 @@ struct INV_ACK {
     uint8_t SRC; // id del PE que envía el mensaje
     uint8_t STATUS; // estado de la línea de caché (true = válida, false = inválida)
     uint8_t QoS; // prioridad del mensaje
+    uint8_t dest; // id del PE que envía el mensaje
 };
+
+// Definición de tipo de mensaje
+using ProcessedMessage = std::variant<WRITE_MEM, READ_MEM, BROADCAST_INVALIDATE>;
 
 // Clase PE (Processing Element)
 class PE {
@@ -46,6 +64,43 @@ public:
     Cache cache;
 
     PE(int id) : id(id) {} // constructor
+
+    /* método para leer instrucciones desde un archivo
+     * parámetros: nombre del archivo (filename)
+     */
+    std::vector<Message> loadMessagesFromFile(const std::string& filename) {
+        std::vector<Message> messages = load_messages_from_file(filename); // cargar mensajes desde el archivo
+        return messages; // devolver los mensajes
+    }
+
+    /* metodo para generar mensajes (structs) que se envian al MMU a partir de cargar las instrucciones desde un archivo
+     * parámetros: mensajes (messages)
+     */
+    std::vector<ProcessedMessage> processMessages(const std::vector<Message>& messages) {
+        std::vector<ProcessedMessage> result;
+    
+        for (const auto& msg : messages) {
+            std::visit([this, &result](auto&& m) {
+                using T = std::decay_t<decltype(m)>;
+                if constexpr (std::is_same_v<T, WriteMem>) {
+                    result.push_back(
+                        writeMem(m.src, m.addr, m.num_of_cache_lines, m.start_cache_line, m.qos)
+                    );
+                } else if constexpr (std::is_same_v<T, ReadMem>) {
+                    result.push_back(
+                        readMem(m.src, m.addr, m.size, m.qos)
+                    );
+                } else if constexpr (std::is_same_v<T, BroadcastInvalidate>) {
+                    result.push_back(
+                        broadcastInvalidate(m.src, m.cache_line, m.qos)
+                    );
+                }
+            }, msg);
+        }
+    
+        return result;
+    }
+    
 
     /* ------ métodos de la clase (envío de mensajes al MMU) ------ */
 
@@ -87,7 +142,7 @@ public:
      */
     BROADCAST_INVALIDATE broadcastInvalidate(uint8_t SRC, uint8_t CACHE_LINE, uint8_t QoS) {
         BROADCAST_INVALIDATE msg;
-        msg.SRC = id; // id del PE que envía el mensaje
+        msg.SRC = SRC; // id del PE que envía el mensaje
         msg.CACHE_LINE = CACHE_LINE; // línea de caché a invalidar
         msg.QoS = QoS; // prioridad del mensaje
 
@@ -97,11 +152,12 @@ public:
     /* método para responder a una invalidación de caché
      * parámetros: ID del PE que envía el mensaje (SRC), prioridad del mensaje (QoS), estado de la línea de caché (CACHE_LINE)
      */
-    INV_ACK invAck(uint8_t SRC, uint8_t STATUS, uint8_t QoS) {
+    INV_ACK invAck(uint8_t SRC, uint8_t STATUS, uint8_t QoS, uint8_t DEST) {
         INV_ACK msg;
         msg.SRC = SRC; // id del PE que envía el mensaje
         msg.STATUS = STATUS; // estado de la línea de caché (true = válida, false = inválida)
         msg.QoS = QoS; // prioridad del mensaje
+        msg.dest = DEST; // id del PE que envía el mensaje
 
         return msg; // devolver el mensaje
     }
@@ -111,10 +167,16 @@ public:
     /* método para recibir un mensaje de invalidación de caché (BROADCAST_INVALIDATE)
      * parámetros: índice de la línea de cache a invalidar (CACHE_LINE)
      */
-    void invalidateCacheLine(uint8_t CACHE_LINE) {
+    void invalidateCacheLine(uint8_t CACHE_LINE, uint8_t SRC) {
         cache.invalidate(CACHE_LINE); // invalidar la línea de caché
 
-        // creo que aquí debería invocarse a invAck() y cache.isValid() para enviar un mensaje de respuesta al MMU automáticamente
+        // enviar un mensaje de respuesta al PE que envió la invalidación
+        uint8_t STATUS = cache.isValid(CACHE_LINE); // estado de la línea de caché (1 = válida, 0 = inválida)
+        uint8_t QoS = 0x0; // prioridad del mensaje por defecto 0
+        INV_ACK msg = invAck(id, STATUS, QoS, SRC); // generar el mensaje de respuesta
+
+        // invocar metodo ProcessMessage del MMU para enviarle el mensaje
+        // ...
     }
 
     /* método para recibir mensaje si todas las invalidaciones fueron exitosas (INV_COMPLETE)
@@ -158,6 +220,32 @@ public:
         } else {
             std::cout << "Error en la escritura en memoria principal.\n";
         }
+    }
+
+    /* ------ método de la clase (recibimiento de mensaje default del MMU) ------ */
+    /* método para recibir un mensaje el mensaje deafult de respuesta por parte del MMU
+     * parámetros: struct con los datos del mensaje (DATA_RESP_PE struct)
+     */
+    void getResponse(DATA_RESP_PE msg) {
+        if (msg.OPERATION_TYPE == OPERATION_TYPE_PE::RESP_READ) {
+            // Guardar los datos en la caché
+            readResp(msg.DATA, msg.DATA_SIZE); // Llamar a la función readResp para guardar los datos en la caché
+            // Imprimir los datos recibidos (opcional)
+            /*
+            std::cout << "Respuesta de lectura recibida. Datos: ";
+            for (size_t i = 0; i < msg.DATA_SIZE; ++i) {
+                std::cout << static_cast<int>(msg.DATA[i]) << " ";
+            }
+            std::cout << "\n"; */
+        } else if (msg.OPERATION_TYPE == OPERATION_TYPE_PE::RESP_WRITE) {
+            writeResp(msg.STATUS); // Llamar a la función writeResp para manejar el estado de la escritura
+        } else if (msg.OPERATION_TYPE == OPERATION_TYPE_PE::CACHE_INVALIDATE) {
+            invalidateCacheLine(msg.CACHE_LINE, msg.SRC);
+        } else if (msg.OPERATION_TYPE == OPERATION_TYPE_PE::INV_COMPLETE) {
+            invComplete(msg.STATUS);
+        } else {
+            std::cerr << "Error: Tipo de mensaje no reconocido.\n";
+        }  
     }
 
 };

@@ -16,22 +16,22 @@ enum class MessageType {
 
 // Estructuras de datos
 struct WriteMem {
-    uint32_t src;
-    uint32_t addr;
+    uint8_t src;
+    uint16_t addr;
     uint8_t num_of_cache_lines;
     uint8_t start_cache_line;
     uint8_t qos;
 };
 
 struct ReadMem {
-    uint32_t src;
-    uint32_t addr;
-    uint32_t size;
+    uint8_t src;
+    uint16_t addr;
+    uint16_t size;
     uint8_t qos;
 };
 
 struct BroadcastInvalidate {
-    uint32_t src;
+    uint8_t src;
     uint8_t cache_line;
     uint8_t qos;
 };
@@ -39,23 +39,23 @@ struct BroadcastInvalidate {
 using Message = std::variant<WriteMem, ReadMem, BroadcastInvalidate>;
 
 
-// Función que procesa cualquier tipo de mensaje
+// Función que imprime en consola cualquier tipo de mensaje
 void process_message(const Message& msg) {
     std::visit([](auto&& m) {
         using T = std::decay_t<decltype(m)>;
         if constexpr (std::is_same_v<T, WriteMem>) {
-            std::cout << "[WRITE_MEM] SRC: 0x" << std::hex << m.src
-                      << " ADDR: 0x" << m.addr
+            std::cout << "[WRITE_MEM] SRC: 0x" << std::hex << +m.src
+                      << " ADDR: 0x" << +m.addr
                       << " LINES: " << +m.num_of_cache_lines
                       << " START: 0x" << +m.start_cache_line
                       << " QoS: " << +m.qos << '\n';
         } else if constexpr (std::is_same_v<T, ReadMem>) {
-            std::cout << "[READ_MEM] SRC: 0x" << std::hex << m.src
-                      << " ADDR: 0x" << m.addr
-                      << " SIZE: " << std::dec << m.size
+            std::cout << "[READ_MEM] SRC: 0x" << std::hex << +m.src
+                      << " ADDR: 0x" << +m.addr
+                      << " SIZE: " << std::dec << +m.size
                       << " QoS: " << std::hex << +m.qos << '\n';
         } else if constexpr (std::is_same_v<T, BroadcastInvalidate>) {
-            std::cout << "[BROADCAST_INVALIDATE] SRC: 0x" << std::hex << m.src
+            std::cout << "[BROADCAST_INVALIDATE] SRC: 0x" << std::hex << +m.src
                       << " CACHE_LINE: 0x" << +m.cache_line
                       << " QoS: " << +m.qos << '\n';
         }
@@ -125,18 +125,3 @@ std::vector<Message> load_messages_from_file(const std::string& filename) {
 
     return messages;
 }
-
-
-
-
-
-int main() {
-    std::vector<Message> msgs = load_messages_from_file("instrucciones.txt");
-
-    // Verifica los mensajes cargados
-    for (const auto& msg : msgs) {
-        process_message(msg);  
-    }
-    return 0;
-}
-
