@@ -13,14 +13,379 @@
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
-  <widget class="QWidget" name="centralwidget"/>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QPushButton" name="uploadButton1">
+    <property name="geometry">
+     <rect>
+      <x>122</x>
+      <y>70</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>FILE1</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="uploadButton2">
+    <property name="geometry">
+     <rect>
+      <x>182</x>
+      <y>70</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>FILE2</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="uploadButton4">
+    <property name="geometry">
+     <rect>
+      <x>302</x>
+      <y>70</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>FILE4</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="uploadButton3">
+    <property name="geometry">
+     <rect>
+      <x>242</x>
+      <y>70</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>FILE3</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="uploadButton6">
+    <property name="geometry">
+     <rect>
+      <x>422</x>
+      <y>70</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>FILE6</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="uploadButton8">
+    <property name="geometry">
+     <rect>
+      <x>542</x>
+      <y>70</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>FILE8</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="uploadButton7">
+    <property name="geometry">
+     <rect>
+      <x>482</x>
+      <y>70</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>FILE7</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="uploadButton5">
+    <property name="geometry">
+     <rect>
+      <x>362</x>
+      <y>70</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>FILE5</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="PEButton2">
+    <property name="geometry">
+     <rect>
+      <x>182</x>
+      <y>130</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>PE 2</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="PEButton8">
+    <property name="geometry">
+     <rect>
+      <x>542</x>
+      <y>130</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>PE 8</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="PEButton7">
+    <property name="geometry">
+     <rect>
+      <x>482</x>
+      <y>130</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>PE 7</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="PEButton4">
+    <property name="geometry">
+     <rect>
+      <x>302</x>
+      <y>130</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>PE 4</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="PEButton3">
+    <property name="geometry">
+     <rect>
+      <x>242</x>
+      <y>130</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>PE 3</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="PEButton1">
+    <property name="geometry">
+     <rect>
+      <x>122</x>
+      <y>130</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>PE 1</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="PEButton6">
+    <property name="geometry">
+     <rect>
+      <x>422</x>
+      <y>130</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>PE 6</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="PEButton5">
+    <property name="geometry">
+     <rect>
+      <x>362</x>
+      <y>130</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>PE 5</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="ICButton">
+    <property name="geometry">
+     <rect>
+      <x>120</x>
+      <y>230</y>
+      <width>461</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>INTERCONNECT</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="SMButton">
+    <property name="geometry">
+     <rect>
+      <x>120</x>
+      <y>310</y>
+      <width>461</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>SHARED MEMORY</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="GRAPHICButton">
+    <property name="geometry">
+     <rect>
+      <x>590</x>
+      <y>360</y>
+      <width>89</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>GRAPHIC 1</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="GRAPHICButton2">
+    <property name="geometry">
+     <rect>
+      <x>690</x>
+      <y>360</y>
+      <width>89</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>GRAPHIC 2</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="LSButton5">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>180</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>L$ 5</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="LSButton4">
+    <property name="geometry">
+     <rect>
+      <x>300</x>
+      <y>180</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>L$ 4</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="LSButton6">
+    <property name="geometry">
+     <rect>
+      <x>420</x>
+      <y>180</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>L$ 6</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="LSButton">
+    <property name="geometry">
+     <rect>
+      <x>120</x>
+      <y>180</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>L$ 1</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="LSButton8">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>180</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>L$ 8</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="LSButton3">
+    <property name="geometry">
+     <rect>
+      <x>240</x>
+      <y>180</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>L$ 3</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="LSButton2">
+    <property name="geometry">
+     <rect>
+      <x>180</x>
+      <y>180</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>L$ 2</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="LSButton7">
+    <property name="geometry">
+     <rect>
+      <x>480</x>
+      <y>180</y>
+      <width>41</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>L$ 7</string>
+    </property>
+   </widget>
+  </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>23</height>
+     <height>22</height>
     </rect>
    </property>
   </widget>
