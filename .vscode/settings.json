@@ -48,6 +48,17 @@
         "iomanip": "cpp",
         "sstream": "cpp",
         "variant": "cpp",
-        "fstream": "cpp"
+        "fstream": "cpp",
+        "condition_variable": "cpp",
+        "cstring": "cpp",
+        "ratio": "cpp",
+        "mutex": "cpp",
+        "semaphore": "cpp",
+        "stop_token": "cpp",
+        "thread": "cpp",
+        "list": "cpp",
+        "map": "cpp",
+        "set": "cpp",
+        "cinttypes": "cpp"
     }
 }

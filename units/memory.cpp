@@ -25,13 +25,8 @@ Memory::~Memory() {
 
 // Handle invalid write response
 int Memory::invalidWriteResponse() {
-    this->data_response = new data_resp;
-    this->data_response->pe_ID = this->memory_operation->pe_ID;
-    this->data_response->op_type = this->memory_operation->op_type;
     this->data_response->QoS = this->memory_operation->QoS;
-    this->data_response->status = NOT_OK;
-
-    this->op_ready = true;
+    
     return 1;
 }
 
@@ -95,18 +90,20 @@ int Memory::readData(uint32_t address, int peid_src, int blocks, int QoS) {
     std::cout << "Function readData() called. Address: " << address << ", PE ID: " << peid_src
               << ", Blocks: " << blocks << std::endl;
     if (this->op_ready) {
+        this->memory_operation = new operation;
+        this->memory_operation->pe_ID = peid_src;
+        this->memory_operation->op_type = operation_type::READ;
+        this->memory_operation->QoS = QoS;
         if ((address + (blocks * 4)) < 0x4000 && (address % 4) == 0) {
             this->op_ready = false;
-            this->memory_operation = new operation;
             this->memory_operation->address = address / 4;
-            this->memory_operation->pe_ID = peid_src;
             this->memory_operation->blocks = blocks;
-            this->memory_operation->op_type = operation_type::READ;
             this->memory_operation->start_cycle = this->cycle;
-            this->memory_operation->QoS = QoS;
             return 1;
         } else {
             std::cout << "Error: Invalid address." << std::endl;
+            this->data_response->status = NOT_OK;   
+            this->op_ready = true;
             return -1;
         }
     } else {
@@ -120,18 +117,20 @@ int Memory::writeData(uint32_t address, int peid_src, block* data, int blocks, i
     std::cout << "Function writeData() called. Address: " << address << ", PE ID: " << peid_src
               << ", Blocks: " << blocks << std::endl;
     if (this->op_ready) {
+        this->memory_operation = new operation;
+        this->memory_operation->pe_ID = peid_src;
+        this->memory_operation->op_type = operation_type::WRITE;
+        this->memory_operation->QoS = QoS;
         if ((address + (blocks * 4)) < 0x4000 && (address % 4) == 0) {
             this->op_ready = false;
-            this->memory_operation = new operation;
             this->memory_operation->address = address / 4;
-            this->memory_operation->pe_ID = peid_src;
             this->memory_operation->write_data = data;
-            this->memory_operation->op_type = operation_type::WRITE;
             this->memory_operation->blocks = blocks;
             this->memory_operation->start_cycle = this->cycle;
-            this->memory_operation->QoS = QoS;
             return 1;
         } else {
+            this->data_response->status = NOT_OK;   
+            this->op_ready = true;  
             std::cout << "Error: Invalid address." << std::endl;
             return -1;
         }

@@ -1,16 +1,46 @@
-#include "interpreter.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <string>
+#include <vector>
+#include <variant>
+#include <cstdint>
 #include <iomanip>
 
-// Convierte un string a un valor numérico
-uint32_t MessageInterpreter::parse_value(const std::string& token) const {
-    return token.find("0x") == 0 ? std::stoul(token, nullptr, 16) : std::stoul(token);
-}
+// Tipos de mensajes
+enum class MessageType {
+    WRITE_MEM,
+    READ_MEM,
+    BROADCAST_INVALIDATE
+};
 
-// Procesa un mensaje y lo imprime
-void MessageInterpreter::process_message(const Message& msg) const {
+// Estructuras de datos
+struct WriteMem {
+    uint8_t src;
+    uint16_t addr;
+    uint8_t num_of_cache_lines;
+    uint8_t start_cache_line;
+    uint8_t qos;
+};
+
+struct ReadMem {
+    uint8_t src;
+    uint16_t addr;
+    uint16_t size;
+    uint8_t qos;
+};
+
+struct BroadcastInvalidate {
+    uint8_t src;
+    uint8_t cache_line;
+    uint8_t qos;
+};
+
+using Message = std::variant<WriteMem, ReadMem, BroadcastInvalidate>;
+
+
+// Función que imprime en consola cualquier tipo de mensaje
+void process_message(const Message& msg) {
     std::visit([](auto&& m) {
         using T = std::decay_t<decltype(m)>;
         if constexpr (std::is_same_v<T, WriteMem>) {
@@ -32,8 +62,14 @@ void MessageInterpreter::process_message(const Message& msg) const {
     }, msg);
 }
 
-// Carga mensajes desde un archivo
-std::vector<Message> MessageInterpreter::load_messages_from_file(const std::string& filename) {
+
+// Función auxiliar para convertir strings
+uint32_t parse_value(const std::string& token) {
+    return token.find("0x") == 0 ? std::stoul(token, nullptr, 16) : std::stoul(token);
+}
+
+// Función principal de carga de instrucciones
+std::vector<Message> load_messages_from_file(const std::string& filename) {
     std::vector<Message> messages;
     std::ifstream file(filename);
     std::string line;

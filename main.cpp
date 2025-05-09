@@ -1,10 +1,11 @@
 
+#include <thread>
 #include "units/memory.h"
 #include "units/executeunit.cpp"
 #include "units/messagemanagement.h"
 #include "units/schedulers/scheduler.h"
 #include "units/datamessages.h"
-#include "PEs/PE_class.cpp"
+#include "PEs/PE_class.h"
 
 // estructura para pasar datos a los hilos
 struct PEThreadData {
@@ -20,25 +21,36 @@ void* peTask(void* arg) {
     PE* pe = data->pe;
     int id = data->id;
 
-
-    // Datos para llenar la caché (16 bytes por línea)
     uint8_t datos[Cache::BLOCK_SIZE];
+    /*
+    // Datos para llenar la caché (16 bytes por línea)
+    
     for (int i = 0; i < Cache::BLOCK_SIZE; ++i) {
         datos[i] = i + 1; // Llenar con números del 1 al 16
+
+        // Llenar la cache de 4 en 4 bytes
+    }
+    */
+
+    // Llenar la cache con valores secuenciales en palabras de 4 bytes
+    for (int i = 0; i < Cache::BLOCK_SIZE / 4; ++i) {
+        uint32_t value = (i * 1024) * 2; // Llenar con números del 4 al 64
+        std::memcpy(datos + i * 4, &value, sizeof(value)); // Copiar el valor en la posición correspondiente
     }
 
     // Llenar las 128 líneas de la caché
     for (int i = 0; i < Cache::BLOCKS; ++i) {
-        std::cout << "Escribiendo en la línea de caché " << i << "...\n";
+        //std::cout << "Escribiendo en la línea de caché " << i << "...\n";
         pe->readResp(datos, sizeof(datos)); // Usar readResp para escribir en la caché
     }
 
     // Escribir dos líneas adicionales para comprobar el sistema FIFO
-    uint8_t extraData1[Cache::BLOCK_SIZE] = {1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 116, 0, 0, 0};
+    uint8_t extraData1[Cache::BLOCK_SIZE] = {1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0};
 
-    std::cout << "Escribiendo línea adicional 1 (FIFO)...\n";
+    //std::cout << "Escribiendo línea adicional 1 (FIFO)...\n";
     pe->readResp(extraData1, sizeof(extraData1)); // Escribir línea adicional 1
 
+    /*
     // Verificar el contenido de la caché
     uint8_t buffer[Cache::BLOCK_SIZE];
     for (int i = 0; i < Cache::BLOCKS; ++i) {
@@ -49,30 +61,42 @@ void* peTask(void* arg) {
         }
         std::cout << "\n";
     }
+    */
 
 
     // leer mensajes desde un archivo
-    std::string filename = "PEs/instrucciones.txt";
+    std::string filename = "PEs/instrucciones" + std::to_string(id) + ".txt";
     std::vector<Message> messages = pe->loadMessagesFromFile(filename);
 
     // procesar mensajes
     std::vector<ProcessedMessage> processedMessages = pe->processMessages(messages);
+    // iterar sobre el vector de mensajes procesados y enviar un mensaje al MMU
+
+    
     // iterar sobre el vector de mensajes procesados y enviarlos al MMU
     for (const auto& msg : processedMessages) {
-        // invocar al metodo que recibe los mensajes en el MMU
-        // cast a pointer to the specific message type
+        
+        // castear el mensaje procesado y enviarlo al MMU
         std::visit([data](auto&& m) {
             using T = std::decay_t<decltype(m)>;
             if constexpr (std::is_same_v<T, WRITE_MEM>) {
-                data->mmu->processMessage(m);
+                data->mmu->processMessage(m); // invocar al metodo que recibe los mensajes en el MMU
             } else if constexpr (std::is_same_v<T, READ_MEM>) {
-                data->mmu->processMessage(m);
+                data->mmu->processMessage(m); // invocar al metodo que recibe los mensajes en el MMU
             } else if constexpr (std::is_same_v<T, BROADCAST_INVALIDATE>) {
-                data->mmu->processMessage(m);
+                data->mmu->processMessage(m); // invocar al metodo que recibe los mensajes en el MMU
             }
         }, msg);
+        
+        // Esperar la respuesta del MMU
+        data->pe->waiting = true;
+        /*
+        while (data->pe->waiting) {
+            std::this_thread::yield();
+        }
+        */
     }
-
+    
     return nullptr; // Terminar el hilo
 }
 
@@ -87,9 +111,7 @@ int main() {
     std::mutex operationSchedulerMutex;
     std::mutex responseSchedulerMutex;
 
-    // Crear instancia de la unidad de gestión de mensajes
-    MessageManagementUnit messageManagementUnit(&operationScheduler, &responseScheduler, 
-                                                &operationSchedulerMutex, &responseSchedulerMutex);
+    
 
     // Crear memoria principal
     Memory mainMemory;
@@ -97,35 +119,51 @@ int main() {
     // Crear una unidad de ejecución
     ExecuteUnit executeUnit(&operationScheduler, &responseScheduler, &mainMemory, &responseSchedulerMutex);
 
-    // crear instancias de los PEs
-    PE pe1(0);
+    std::array<PE, 4> pes = {PE(0), PE(1), PE(2), PE(3)};
+    PEThreadData threadData[4];
 
-    // crear 8 PEs
-    std::array<PE, 1> pes = {PE(0)};
-    PEThreadData threadData[1];
+    // Crear instancia de la unidad de gestión de mensajes
+    MessageManagementUnit messageManagementUnit(&operationScheduler, &responseScheduler, 
+        &operationSchedulerMutex, &responseSchedulerMutex, &pes);
+
+    // Asignar el MMU a cada PE
+    for (int i = 0; i < 4; ++i) {
+        pes.at(i).mmu = &messageManagementUnit;
+    }
 
     // crear hilos
-    pthread_t threads[1];
+    pthread_t threads[4];
 
-    for (int i = 0; i < 1; ++i) {
+    
+
+    // Actualizar todas las unidades varias veces  
+    
+    
+    
+
+    for (int i = 0; i < 4; ++i) {
         threadData[i] = {&pes[i], i, &messageManagementUnit};
         pthread_create(&threads[i], nullptr, peTask, &threadData[i]);
     }
 
-    // esperar a que todos los hilos terminen
-    for (int i = 0; i < 1; ++i) {
-        pthread_join(threads[i], nullptr);
-    }
+    // Esperar un tiempo para que los hilos se inicien
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-
-    // Actualizar todas las unidades varias veces       
-
-    for (int i = 0; i < 30; ++i) {
+    for (int i = 0; i < 100; ++i) {
         std::cout << "----- Ciclo: " << i << " -----" << std::endl;
         mainMemory.update(); // Actualizar la memoria principal
         executeUnit.update(); // Actualizar la unidad de ejecución
         messageManagementUnit.update(); // Actualizar la unidad de gestión de mensajes
     }
+
+    // esperar a que todos los hilos terminen
+    for (int i = 0; i < 4; ++i) {
+        pthread_join(threads[i], nullptr);
+    }
+
+
+    
+
     
     /*
     // Simular la llegada de mensajes

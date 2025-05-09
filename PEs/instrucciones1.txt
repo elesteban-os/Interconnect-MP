@@ -1,0 +1,4 @@
+PE1
+WRITE_MEM 1, 0x4, 2, 0x0, 0
+WRITE_MEM 1, 0x8, 3, 0x0, 1
+READ_MEM  1, 0x0, 64, 3

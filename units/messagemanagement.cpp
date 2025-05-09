@@ -1,7 +1,7 @@
 #include "messagemanagement.h"
 #include <iostream>
 #include <vector>
-
+//#include "../PEs/PE_class.h"
 
 // Constructor
 MessageManagementUnit::MessageManagementUnit(Scheduler<operation>* opScheduler, Scheduler<data_resp>* respScheduler, 
@@ -12,8 +12,20 @@ MessageManagementUnit::MessageManagementUnit(Scheduler<operation>* opScheduler, 
     this->responseScheduler = respScheduler;
 }
 
+MessageManagementUnit::MessageManagementUnit(Scheduler<operation>* opScheduler, Scheduler<data_resp>* respScheduler, 
+                                             std::mutex* opSchedulerMutex, std::mutex* respSchedulerMutex, std::array<PE, 4>* pes) {
+        this->operationSchedulerMutex = opSchedulerMutex;
+        this->responseSchedulerMutex = respSchedulerMutex;
+        this->operationScheduler = opScheduler;
+        this->responseScheduler = respScheduler;
+        this->pes = pes;
+}
+
+
 // Method for processing READ_MEM messages
 void MessageManagementUnit::processMessage(READ_MEM readMessage) {
+    // Llamada a la funcion
+    std::cout << "Processing READ_MEM message from PE: " << (int)readMessage.SRC << std::endl;
     std::lock_guard<std::mutex> lock(*operationSchedulerMutex); // Lock the mutex
     operation newOperation;
     newOperation.pe_ID = readMessage.SRC;
@@ -76,6 +88,8 @@ void MessageManagementUnit::processMessage(INV_ACK readMessage) {
     newResponse.op_type = operation_type::CACHE_ACK;
     newResponse.QoS = readMessage.QoS;
     newResponse.status = readMessage.STATUS; // Store the cache line status
+    newResponse.data = new block[1]; // Create a block for the response
+    newResponse.data->byte[0] = readMessage.DEST;
 
     // Add the new response to the scheduler
     responseScheduler->addOperation(newResponse);
@@ -99,6 +113,28 @@ void MessageManagementUnit::update() {
                 // Inv Ack: SRC, DEST, STATUS, QoS
                 std::cout << "Cache ACK received from PE:" << (int)response.pe_ID << " with status: " << (int)response.status << std::endl;
                 // Procesar el ACK y contar hasta que se haga un COMPLETE (calendarizarlo en respuestas y colocar QoS) (SRC y DEST)
+
+                // Verificar si el PE_ID esta en la lista de invalidaciones
+                for (int i = 0; i < this->invalidationMessages.size(); ++i) {
+                    if (this->invalidationMessages[i].pe_id == response.data->byte[0]) {
+                        this->invalidationMessages[i].numPEInvalidations++;
+                        std::cout << "Invalidation message updated from PE: " << (int)response.pe_ID << ", DEST: " << (int)response.data->byte[0] << std::endl;
+
+                        // Verificar si el número de invalidaciones es igual al número de PEs
+                        if (this->invalidationMessages[i].numPEInvalidations == pes->size() - 1) {
+                            // Enviar el mensaje de COMPLETE al PE
+                            DATA_RESP_PE completePEMessage;
+                            completePEMessage.OPERATION_TYPE = OPERATION_TYPE_PE::INV_COMPLETE; // Para que el PE sepa el tipo de funcion
+                            completePEMessage.SRC = this->invalidationMessages[i].pe_id; // ID del PE que recibe el mensaje
+
+                            // Obtener el ID del PE que recibe el mensaje por medio del response* y enviar el mensaje
+                            this->pes->at(this->invalidationMessages[i].pe_id).getResponse(completePEMessage); // Enviar el mensaje al PE correspondiente
+                            std::cout << "Complete message sent to PE: " << (int)this->invalidationMessages[i].pe_id << std::endl;
+                        }
+                        break;
+                    }
+                }
+
                 break;
             case operation_type::CACHE_INVALIDATE:
                 // Broadcast Invalidate: SRC, DEST, CACHE_LINE, QoS
@@ -112,6 +148,21 @@ void MessageManagementUnit::update() {
 
                 // Enviar el mensaje
                 // Obtener el ID del PE que recibe el mensaje por medio del response* y enviar el mensaje
+                
+                // Enviar el mensaje a todos los PEs excepto al que lo envió
+                std::cout << "Sending invalidate message to all PEs except PE: " << (int)response.pe_ID << std::endl;
+                for (int i = 0; i < pes->size(); ++i) {
+                    if (i != response.pe_ID) {
+                        std::cout << "Sending invalidate message to PE: " << (int)i << std::endl;
+                        pes->at(i).getResponse(invalidatePEMEssages); // Enviar el mensaje al PE correspondiente
+                    }
+                }
+                std::cout << "Invalidate message sent to all PEs except PE: " << (int)response.pe_ID << std::endl;
+                invalidation_message im;
+                im.pe_id = response.pe_ID;
+                im.numPEInvalidations = 0;
+                this->invalidationMessages.push_back(im); // Guardar el mensaje de invalidación
+
  
                 break;
             case operation_type::READ:
@@ -139,6 +190,7 @@ void MessageManagementUnit::update() {
                     readPEMessage.SRC = response.pe_ID; // ID del PE que recibe el mensaje
 
                     // Obtener el ID del PE que recibe el mensaje por medio del response* y enviar el mensaje
+                    this->pes->at(response.pe_ID).getResponse(readPEMessage); // Enviar el mensaje al PE correspondiente
 
                 }
                 break;
@@ -152,6 +204,7 @@ void MessageManagementUnit::update() {
                 writePEMessage.SRC = response.pe_ID; // ID del PE que recibe el mensaje
 
                 // Obtener el ID del PE que recibe el mensaje por medio del response* y enviar el mensaje
+                this->pes->at(response.pe_ID).getResponse(writePEMessage); // Enviar el mensaje al PE correspondiente
 
                 std::cout << "Write operation completed for PE: " << response.pe_ID << " with STATUS: " << (int)response.status << std::endl;
                 break;
