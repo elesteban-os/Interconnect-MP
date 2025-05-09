@@ -8,8 +8,9 @@ Clock::~Clock() {}
 
 // Update the clock
 void Clock::update() {
-    clk = !clk; // Toggle clock state
-    if (clk) cycle++; // Increment cycle counter
+    std::lock_guard<std::mutex> lock(clockMutex);
+    cycle++; // Increment cycle counter
+    clockCV.notify_all(); // Notificar a todos los hilos que el ciclo ha avanzado
 }
 
 // Get the current clock state
@@ -20,4 +21,9 @@ bool Clock::getClock() {
 // Get the current cycle count
 int Clock::getCycle() {
     return cycle;
+}
+
+void Clock::waitForCycle(int targetCycle) {
+    std::unique_lock<std::mutex> lock(clockMutex);
+    clockCV.wait(lock, [this, targetCycle]() { return cycle >= targetCycle; });
 }

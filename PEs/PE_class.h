@@ -5,8 +5,10 @@
 #include "interpreter.h"
 #include <vector>
 #include <variant>
+#include <mutex>
 #include "../units/datamessages.h"
 #include "../units/messagemanagement.h"
+#include "../units/messagetimer.h"
 
 // Definición de tipo de mensaje
 using ProcessedMessage = std::variant<WRITE_MEM, READ_MEM, BROADCAST_INVALIDATE>;
@@ -20,8 +22,9 @@ public:
     bool waiting;
     MessageManagementUnit* mmu;
     Cache cache;
+    MessageTimer* messageTimer;
 
-    PE(int id);
+    PE(int id, MessageTimer* messageTime);
 
     std::vector<Message> loadMessagesFromFile(const std::string& filename);
     std::vector<ProcessedMessage> processMessages(const std::vector<Message>& messages);

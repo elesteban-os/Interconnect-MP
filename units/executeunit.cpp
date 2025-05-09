@@ -3,6 +3,7 @@
 #include "schedulers/scheduler.h"
 #include "memory.h"
 #include <mutex>
+#include "messagetimer.h"
 
 class ExecuteUnit {
     private:
@@ -11,14 +12,16 @@ class ExecuteUnit {
         Scheduler<data_resp>* responseScheduler = nullptr;
         std::mutex* responseSchedulerMutex; // Mutex for thread safety
         Memory *memory = nullptr;
+        MessageTimer *messageTimer = nullptr;
         bool busy = false;
 
     public:
-        ExecuteUnit(Scheduler<operation>* operationScheduler, Scheduler<data_resp>* respScheduler, Memory* mem, std::mutex* respSchedulerMutex) {
+        ExecuteUnit(Scheduler<operation>* operationScheduler, Scheduler<data_resp>* respScheduler, Memory* mem, std::mutex* respSchedulerMutex, MessageTimer* msgTimer) {
             this->responseSchedulerMutex = respSchedulerMutex;
             this->responseScheduler = respScheduler;
             this->operationScheduler = operationScheduler;
             this->memory = mem;
+            this->messageTimer = msgTimer;
         }
 
         ~ExecuteUnit() {
@@ -46,7 +49,15 @@ class ExecuteUnit {
                 std::lock_guard<std::mutex> lock(*responseSchedulerMutex); // Lock the mutex
 
                 data_resp* response = memory->get_data_response();
-                responseScheduler->addOperation(*response);
+
+                int time = (response->blocks == 0) ? 1 : response->blocks; // 4 cycles for each block
+
+                // Agregar el mensaje al temporizador
+                std::cout << "Message timer for scheduler to cycle: " << messageTimer->getCycles() + time + 1 << std::endl;
+                messageTimer->addMessage(time, [response, this]() {
+                    this->responseScheduler->addOperation(*response);
+                });
+                
                 this->busy = false;
 
                 // Eliminar operacion de la cola de operaciones

@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iostream>
 #include "datamessages.h"
+#include "clock.h"
 
 // Memory class
 class Memory {
@@ -13,13 +14,14 @@ private:
     bool op_ready = true;
     operation* memory_operation = nullptr;
     data_resp* data_response = nullptr;
-    int cycle = 0;
+    Clock* clk = nullptr;
 
     int invalidWriteResponse();
     int responseCreator();
     int operationUpdate();
 
 public:
+    Memory(Clock* clk);
     Memory();
     ~Memory();
     int update();

@@ -2,7 +2,11 @@
 //#include "../units/messagemanagement.h"
 
 
-PE::PE(int id) : id(id) {} // constructor
+
+
+// constructor de la clase PE
+PE::PE(int id, MessageTimer* messageTime) : id(id), messageTimer(messageTime) {}
+
 
 /* método para leer instrucciones desde un archivo
     * parámetros: nombre del archivo (filename)
@@ -116,7 +120,12 @@ void PE::invalidateCacheLine(uint8_t CACHE_LINE, uint8_t SRC) {
     INV_ACK msg = invAck(id, STATUS, QoS, SRC); // generar el mensaje de respuesta
 
     // invocar metodo ProcessMessage del MMU para enviarle el mensaje
-    mmu->processMessage(msg); // enviar el mensaje al MMU
+
+    messageTimer->addMessage(1, [this, msg]() {
+        this->mmu->processMessage(msg); // invocar al metodo que recibe los mensajes en el PE
+    });
+
+    //mmu->processMessage(msg); // enviar el mensaje al MMU
 }
 
 /* método para recibir mensaje si todas las invalidaciones fueron exitosas (INV_COMPLETE)
@@ -167,12 +176,14 @@ void PE::writeResp(uint8_t STATUS) {
     * parámetros: struct con los datos del mensaje (DATA_RESP_PE struct)
     */
 void PE::getResponse(DATA_RESP_PE msg) {
+    /*
     std::cout << "entro al getResponse \n"; 
     // imprimir el mensaje recibido
     std::cout << "Mensaje recibido de PE: " << static_cast<int>(msg.SRC) << "\n";
     std::cout << "Tipo de operación: " << static_cast<int>(msg.OPERATION_TYPE) << "\n";
     std::cout << "Estado: " << static_cast<int>(msg.STATUS) << "\n";
     std::cout << "Tamaño de los datos: " << msg.DATA_SIZE << "\n";
+    */
 
     if (msg.OPERATION_TYPE == OPERATION_TYPE_PE::RESP_READ) {
         // Guardar los datos en la caché

@@ -13,12 +13,15 @@ MessageManagementUnit::MessageManagementUnit(Scheduler<operation>* opScheduler, 
 }
 
 MessageManagementUnit::MessageManagementUnit(Scheduler<operation>* opScheduler, Scheduler<data_resp>* respScheduler, 
-                                             std::mutex* opSchedulerMutex, std::mutex* respSchedulerMutex, std::array<PE, 4>* pes) {
+                                             std::mutex* opSchedulerMutex, std::mutex* respSchedulerMutex, std::array<PE, 4>* pes, 
+                                             std::vector<PEThreadData>* peeThreadData, MessageTimer* messageTimer) {
         this->operationSchedulerMutex = opSchedulerMutex;
         this->responseSchedulerMutex = respSchedulerMutex;
         this->operationScheduler = opScheduler;
         this->responseScheduler = respScheduler;
         this->pes = pes;
+        this->peThreadData = peeThreadData;
+        this->messageTimer = messageTimer;
 }
 
 
@@ -33,12 +36,18 @@ void MessageManagementUnit::processMessage(READ_MEM readMessage) {
     newOperation.address = readMessage.ADDR;
     newOperation.blocks = readMessage.SIZE / 4; // Convert bytes to blocks
     newOperation.QoS = readMessage.QoS;
+    std::cout << "Mensage timer started for READ_MEM operation to cycle: " << this->messageTimer->getCycles() + 1 << std::endl;
+    messageTimer->addMessage(1, [newOperation, this]() {
+        std::cout << "Message timer expired for READ_MEM operation." << std::endl;
+        std::lock_guard<std::mutex> lock(*operationSchedulerMutex); // Lock the mutex
+        // Add the operation to the scheduler
+        this->operationScheduler->addOperation(newOperation);
+    });
     operationScheduler->addOperation(newOperation);
 }
 
 // Method for processing WRITE_MEM messages
 void MessageManagementUnit::processMessage(WRITE_MEM writeMessage) {
-    std::lock_guard<std::mutex> lock(*operationSchedulerMutex); // Lock the mutex
     operation newOperation;
     newOperation.pe_ID = writeMessage.SRC;
     newOperation.op_type = operation_type::WRITE;
@@ -60,8 +69,15 @@ void MessageManagementUnit::processMessage(WRITE_MEM writeMessage) {
     }
     std::cout << std::endl;
 
-    // Add the new operation to the scheduler
-    operationScheduler->addOperation(newOperation);
+    // Add the new operation to the scheduler  
+    std::cout << "Mensage timer started for WRITE_MEM operation to cycle: " << this->messageTimer->getCycles() + (newOperation.blocks) << std::endl;
+    messageTimer->addMessage(newOperation.blocks, [newOperation, this]() {
+        std::cout << "Message timer expired for WRITE_MEM operation." << std::endl;
+        std::lock_guard<std::mutex> lock(*operationSchedulerMutex); // Lock the mutex
+        // Add the operation to the scheduler
+        this->operationScheduler->addOperation(newOperation);
+    });
+    //operationScheduler->addOperation(newOperation);
 }
 
 // Method for processing BROADCAST_INVALIDATE messages
@@ -97,6 +113,8 @@ void MessageManagementUnit::processMessage(INV_ACK readMessage) {
     std::cout << "Processing INV_ACK message from PE: " << (int)readMessage.SRC << std::endl;
 }
 
+
+
 // Metodo para actualizar la unidad con los mensajes de respuesta
 void MessageManagementUnit::update() {
     std::lock_guard<std::mutex> lock(*responseSchedulerMutex); // Lock the mutex
@@ -106,6 +124,7 @@ void MessageManagementUnit::update() {
     if (response.pe_ID != -1) {     
         // Procesar el mensaje de respuesta
         std::cout << "Processing response for PE: " << response.pe_ID << " --> ";
+        //std::lock_guard<std::mutex> lock(this->peThreadData->at(response.pe_ID).mtx);
 
         // Casos según el tipo de operación
         switch (response.op_type) {
@@ -130,6 +149,10 @@ void MessageManagementUnit::update() {
                             // Obtener el ID del PE que recibe el mensaje por medio del response* y enviar el mensaje
                             this->pes->at(this->invalidationMessages[i].pe_id).getResponse(completePEMessage); // Enviar el mensaje al PE correspondiente
                             std::cout << "Complete message sent to PE: " << (int)this->invalidationMessages[i].pe_id << std::endl;
+                            // Notificar al hilo que la escritura ha terminado
+                            std::lock_guard<std::mutex> lock(this->peThreadData->at(this->invalidationMessages[i].pe_id).mtx);
+                            this->peThreadData->at(this->invalidationMessages[i].pe_id).responseReady = true;
+                            this->peThreadData->at(this->invalidationMessages[i].pe_id).cv.notify_one(); // Notificar al hilo que espera
                         }
                         break;
                     }
@@ -155,6 +178,10 @@ void MessageManagementUnit::update() {
                     if (i != response.pe_ID) {
                         std::cout << "Sending invalidate message to PE: " << (int)i << std::endl;
                         pes->at(i).getResponse(invalidatePEMEssages); // Enviar el mensaje al PE correspondiente
+                        // Notificar al hilo que la escritura ha terminado
+                        std::lock_guard<std::mutex> lock(this->peThreadData->at(i).mtx);
+                        this->peThreadData->at(i).responseReady = true;
+                        this->peThreadData->at(i).cv.notify_one(); // Notificar al hilo que espera
                     }
                 }
                 std::cout << "Invalidate message sent to all PEs except PE: " << (int)response.pe_ID << std::endl;
@@ -189,12 +216,18 @@ void MessageManagementUnit::update() {
                     readPEMessage.DATA_SIZE = response.blocks * 4; // Size of the data
                     readPEMessage.SRC = response.pe_ID; // ID del PE que recibe el mensaje
 
-                    // Obtener el ID del PE que recibe el mensaje por medio del response* y enviar el mensaje
-                    this->pes->at(response.pe_ID).getResponse(readPEMessage); // Enviar el mensaje al PE correspondiente
-
+                    // Simular el tiempo de escritura
+                    messageTimer->addMessage(response.blocks, [readPEMessage, response, this]() {
+                        // Obtener el ID del PE que recibe el mensaje por medio del response* y enviar el mensaje
+                        this->pes->at(response.pe_ID).getResponse(readPEMessage); // Enviar el mensaje al PE correspondiente
+                        // Notificar al hilo que la escritura ha terminado
+                        std::lock_guard<std::mutex> lock(this->peThreadData->at(response.pe_ID).mtx);
+                        this->peThreadData->at(response.pe_ID).responseReady = true;
+                        this->peThreadData->at(response.pe_ID).cv.notify_one(); // Notificar al hilo que espera
+                    });
                 }
                 break;
-            case operation_type::WRITE:
+            case operation_type::WRITE: {
                 // Write resp: DST, STATUS, QoS
                 // La respuesta solo ocupa el STATUS
                 // Enviar el mensaje de respuesta al PE
@@ -203,10 +236,25 @@ void MessageManagementUnit::update() {
                 writePEMessage.STATUS = response.status; // STATUS de la respuesta
                 writePEMessage.SRC = response.pe_ID; // ID del PE que recibe el mensaje
 
-                // Obtener el ID del PE que recibe el mensaje por medio del response* y enviar el mensaje
-                this->pes->at(response.pe_ID).getResponse(writePEMessage); // Enviar el mensaje al PE correspondiente
+                // Simular el tiempo de escritura
+                messageTimer->addMessage(1, [writePEMessage, response, this]() {
+                    // Obtener el ID del PE que recibe el mensaje por medio del response* y enviar el mensaje
+                    this->pes->at(response.pe_ID).getResponse(writePEMessage); // Enviar el mensaje al PE correspondiente
 
-                std::cout << "Write operation completed for PE: " << response.pe_ID << " with STATUS: " << (int)response.status << std::endl;
+                    // Notificar al hilo que la escritura ha terminado
+                    std::lock_guard<std::mutex> lock(this->peThreadData->at(response.pe_ID).mtx);
+                    this->peThreadData->at(response.pe_ID).responseReady = true;
+                    this->peThreadData->at(response.pe_ID).cv.notify_one(); // Notificar al hilo que espera
+                    
+                    std::cout << "Write operation completed for PE: " << response.pe_ID << " with STATUS: " << (int)response.status << std::endl;
+                });
+
+                
+                break;
+            }
+            case operation_type::NO_OP:
+                // No operation: do nothing
+                std::cout << "No operation for PE: " << response.pe_ID << std::endl;
                 break;
             default:
                 std::cout << "Unknown response type" << std::endl;

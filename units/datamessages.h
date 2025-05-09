@@ -3,9 +3,19 @@
 
 #include <cstdint>
 #include <vector>
+#include <condition_variable>
+#include <mutex>
+
+//#include "../PEs/PE_class.h" // For PE
+//#include "messagemanagement.h" // For MessageManagementUnit
+
+// Declaraciones adelantadas
+class PE;
+class MessageManagementUnit;
+class MessageTimer;
 
 // Enum for operation types
-enum class operation_type { READ, WRITE, CACHE_INVALIDATE, CACHE_ACK, INVALIDATION_COMPLETE };
+enum class operation_type { READ, WRITE, CACHE_INVALIDATE, CACHE_ACK, INVALIDATION_COMPLETE, NO_OP };
 
 // Union block
 union block {
@@ -83,6 +93,29 @@ struct INV_ACK {
     uint8_t STATUS; // estado de la línea de caché (true = válida, false = inválida)
     uint8_t QoS; // prioridad del mensaje
     uint8_t DEST; // id del PE que recibe el mensaje
+};
+
+
+// estructura para pasar datos a los hilos
+struct PEThreadData {
+    PE* pe;
+    int id;
+    MessageManagementUnit* mmu;
+    MessageTimer* messageTimer;
+    std::condition_variable cv; // Condición para esperar la respuesta
+    std::mutex mtx;             // Mutex para sincronización
+    bool responseReady = false; // Bandera para indicar si la respuesta está lista
+    
+    // Explicitly define copy assignment operator
+    PEThreadData& operator=(const PEThreadData& other) {
+        if (this != &other) {
+            pe = other.pe;
+            id = other.id;
+            mmu = other.mmu;
+            messageTimer = other.messageTimer;
+        }
+        return *this;
+    }
 };
 
 #endif // DATAMESSAGES_H

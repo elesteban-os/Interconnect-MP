@@ -4,8 +4,8 @@
 #include "memory.h"
 
 // Declaracion de constantes del sistema
-#define READ_CYCLES 8
-#define WRITE_CYCLES 8
+#define READ_CYCLES 2
+#define WRITE_CYCLES 3
 
 // Para el write_response
 #define OK 0x1
@@ -15,6 +15,11 @@
 // Constructor
 Memory::Memory() {
     // Initialize memory or other resources if needed
+}
+
+
+Memory::Memory(Clock* clk) {
+    this->clk = clk;
 }
 
 // Destructor
@@ -55,7 +60,7 @@ int Memory::responseCreator() {
 // Update the memory state
 int Memory::operationUpdate() {
     if (!this->op_ready) {
-        if (this->cycle >= this->memory_operation->start_cycle + READ_CYCLES) {
+        if (this->clk->getCycle() >= this->memory_operation->start_cycle + (READ_CYCLES * this->memory_operation->blocks)) {
             std::cout << "Operation is now ready." << std::endl;
             return 1;
         } else {
@@ -78,10 +83,8 @@ int Memory::update() {
         delete this->memory_operation;
         this->memory_operation = nullptr;
         this->op_ready = true;
-        this->cycle++;
         return 1;
     }
-    this->cycle++;
     return 0;
 }
 
@@ -98,7 +101,7 @@ int Memory::readData(uint32_t address, int peid_src, int blocks, int QoS) {
             this->op_ready = false;
             this->memory_operation->address = address / 4;
             this->memory_operation->blocks = blocks;
-            this->memory_operation->start_cycle = this->cycle;
+            this->memory_operation->start_cycle = this->clk->getCycle();
             return 1;
         } else {
             std::cout << "Error: Invalid address." << std::endl;
@@ -126,7 +129,7 @@ int Memory::writeData(uint32_t address, int peid_src, block* data, int blocks, i
             this->memory_operation->address = address / 4;
             this->memory_operation->write_data = data;
             this->memory_operation->blocks = blocks;
-            this->memory_operation->start_cycle = this->cycle;
+            this->memory_operation->start_cycle = this->clk->getCycle();
             return 1;
         } else {
             this->data_response->status = NOT_OK;   

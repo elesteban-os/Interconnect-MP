@@ -1,18 +1,16 @@
 
 #include <thread>
+#include <variant>
+#include <condition_variable>
 #include "units/memory.h"
 #include "units/executeunit.cpp"
 #include "units/messagemanagement.h"
 #include "units/schedulers/scheduler.h"
 #include "units/datamessages.h"
 #include "PEs/PE_class.h"
+#include "units/clock.h"
+#include "units/messagetimer.h"
 
-// estructura para pasar datos a los hilos
-struct PEThreadData {
-    PE* pe;
-    int id;
-    MessageManagementUnit* mmu;
-};
 
 void* peTask(void* arg) {
     // logic for each PE
@@ -20,6 +18,7 @@ void* peTask(void* arg) {
     PEThreadData* data = static_cast<PEThreadData*>(arg);
     PE* pe = data->pe;
     int id = data->id;
+    
 
     uint8_t datos[Cache::BLOCK_SIZE];
     /*
@@ -72,36 +71,70 @@ void* peTask(void* arg) {
     std::vector<ProcessedMessage> processedMessages = pe->processMessages(messages);
     // iterar sobre el vector de mensajes procesados y enviar un mensaje al MMU
 
+    struct Visitor {
+        MessageManagementUnit* mmu;
+        void operator()(const WRITE_MEM& msg) const {
+            mmu->processMessage(msg);
+        }
+        void operator()(const READ_MEM& msg) const {
+            mmu->processMessage(msg);
+        }
+        void operator()(const BROADCAST_INVALIDATE& msg) const {
+            mmu->processMessage(msg);
+        }
+    };
     
     // iterar sobre el vector de mensajes procesados y enviarlos al MMU
     for (const auto& msg : processedMessages) {
         
-        // castear el mensaje procesado y enviarlo al MMU
-        std::visit([data](auto&& m) {
-            using T = std::decay_t<decltype(m)>;
-            if constexpr (std::is_same_v<T, WRITE_MEM>) {
-                data->mmu->processMessage(m); // invocar al metodo que recibe los mensajes en el MMU
-            } else if constexpr (std::is_same_v<T, READ_MEM>) {
-                data->mmu->processMessage(m); // invocar al metodo que recibe los mensajes en el MMU
-            } else if constexpr (std::is_same_v<T, BROADCAST_INVALIDATE>) {
-                data->mmu->processMessage(m); // invocar al metodo que recibe los mensajes en el MMU
-            }
-        }, msg);
+        
+        // Obtener el tamano de bloques a escribir
+        int numCacheLines = 0;
+        if (std::holds_alternative<WRITE_MEM>(msg)) {
+            numCacheLines = std::get<WRITE_MEM>(msg).NUM_CACHE_LINES;
+        } else numCacheLines = -1;
+
+        int time;
+        time = (numCacheLines == -1) ? data->messageTimer->getCycles() + 2 : data->messageTimer->getCycles() + (numCacheLines * 4) + 1; // 4 ciclos por cada bloque a escribir
+        std::cout << "Ciclo hasta enviar mensaje del PE " << id << ": " << time - 1 << std::endl;
+        data->messageTimer->getClock()->waitForCycle(time); // Esperar un ciclo para simular el tiempo de procesamiento
+        //std::cout << "Despues del clock para el PE " << id << std::endl;
+
+        std::visit(Visitor{data->mmu}, msg); // Enviar el mensaje al MMU
         
         // Esperar la respuesta del MMU
         data->pe->waiting = true;
+        // Esperar la respuesta del MMU
+        data->responseReady = false;
+        std::cout << "Esperando respuesta del MMU para el PE " << id << std::endl;
+        std::unique_lock<std::mutex> lock(data->mtx);
+        data->cv.wait(lock, [data]() { return data->responseReady; });
+
+        // Procesar la respuesta
+        std::cout << "Respuesta recibida para el PE " << id << std::endl;
+
+        // Reiniciar la bandera para la próxima iteración
+        data->responseReady = false;
         /*
         while (data->pe->waiting) {
             std::this_thread::yield();
         }
         */
     }
+
+    // Instrucciones terminadas
+    std::cout << "Instrucciones terminadas para el PE " << id << std::endl;
     
     return nullptr; // Terminar el hilo
 }
 
 // Prueba de calendarizador, memoria, unidad de ejecucion y unidad de gestion de mensajes
-int main() {
+int main() {    
+    // Crear un reloj
+    Clock clock;
+    // Crear un temporizador de mensajes
+    MessageTimer messageTimer(&clock);
+    std::mutex messageTimerMutex;
     
     // Crear instancias de los calendarizadores
     Scheduler<operation> operationScheduler;
@@ -111,20 +144,18 @@ int main() {
     std::mutex operationSchedulerMutex;
     std::mutex responseSchedulerMutex;
 
-    
-
     // Crear memoria principal
-    Memory mainMemory;
+    Memory mainMemory(&clock);
 
     // Crear una unidad de ejecución
-    ExecuteUnit executeUnit(&operationScheduler, &responseScheduler, &mainMemory, &responseSchedulerMutex);
+    ExecuteUnit executeUnit(&operationScheduler, &responseScheduler, &mainMemory, &responseSchedulerMutex, &messageTimer);
 
-    std::array<PE, 4> pes = {PE(0), PE(1), PE(2), PE(3)};
-    PEThreadData threadData[4];
+    std::array<PE, 4> pes = {PE(0, &messageTimer), PE(1, &messageTimer), PE(2, &messageTimer), PE(3, &messageTimer)};
+    std::vector<PEThreadData> threadData(4); // Vector para almacenar los datos de los hilos
 
     // Crear instancia de la unidad de gestión de mensajes
     MessageManagementUnit messageManagementUnit(&operationScheduler, &responseScheduler, 
-        &operationSchedulerMutex, &responseSchedulerMutex, &pes);
+        &operationSchedulerMutex, &responseSchedulerMutex, &pes, &threadData, &messageTimer);
 
     // Asignar el MMU a cada PE
     for (int i = 0; i < 4; ++i) {
@@ -137,23 +168,25 @@ int main() {
     
 
     // Actualizar todas las unidades varias veces  
-    
-    
-    
-
     for (int i = 0; i < 4; ++i) {
-        threadData[i] = {&pes[i], i, &messageManagementUnit};
+        threadData[i] = {&pes[i], i, &messageManagementUnit, &messageTimer};
         pthread_create(&threads[i], nullptr, peTask, &threadData[i]);
     }
 
     // Esperar un tiempo para que los hilos se inicien
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-    for (int i = 0; i < 100; ++i) {
-        std::cout << "----- Ciclo: " << i << " -----" << std::endl;
+    for (int i = 0; i < 10000; ++i) {
+        
+        std::cout << "----- Ciclo: " << clock.getCycle() << " -----" << std::endl;
+        messageTimer.update(); // Actualizar el temporizador de mensajes
         mainMemory.update(); // Actualizar la memoria principal
         executeUnit.update(); // Actualizar la unidad de ejecución
         messageManagementUnit.update(); // Actualizar la unidad de gestión de mensajes
+        clock.update(); // Actualizar el reloj
+        // Avanzar el ciclo presionando enter
+        std::cout << "Presione enter para continuar..." << std::endl;
+        std::cin.get();
     }
 
     // esperar a que todos los hilos terminen
