@@ -1,7 +1,7 @@
 #include "SystemSimulator.h"
 #include <iostream>
 #include <chrono>
-#include <thread>
+#include <pthread.h>
 
 SystemSimulator::SystemSimulator()
     : messageTimer(&clock),
@@ -137,6 +137,13 @@ void* peTask(void* arg) {
     return nullptr; // Terminar el hilo
 }
 
+void SystemSimulator::waitForThreads() {
+    if (!started) return;
+    for (int i = 0; i < 4; ++i) {
+        pthread_join(threads[i], nullptr);
+    }
+}
+
 void SystemSimulator::start() {
     if (started) return;
     started = true;
@@ -145,20 +152,25 @@ void SystemSimulator::start() {
         pthread_create(&threads[i], nullptr, peTask, &threadData[i]);
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+    // esperar a que todos los hilos terminen
+    std::cout << "antes del join" << std::endl;  
+    waitForThreads();
+    std::cout << "despues del join" << std::endl;
 }
 
-void SystemSimulator::step() {
-    std::cout << "----- Ciclo: " << clock.getCycle() << " -----" << std::endl;
-    messageTimer.update();
-    mainMemory.update();
-    executeUnit.update();
-    messageManagementUnit.update();
-    clock.update();
-}
-
-void SystemSimulator::waitForThreads() {
-    if (!started) return;
-    for (int i = 0; i < 4; ++i) {
-        pthread_join(threads[i], nullptr);
+int SystemSimulator::step() {
+    if (!pes[0].finished || !pes[1].finished || !pes[2].finished || !pes[3].finished) {
+        std::cout << "----- Ciclo: " << clock.getCycle() << " -----" << std::endl;
+        messageTimer.update();
+        mainMemory.update();
+        executeUnit.update();
+        messageManagementUnit.update();
+        clock.update();
+        return 1;
+    } else 
+    {
+        std::cout << "Simulación terminada." << std::endl;
+        return 0;
     }
 }

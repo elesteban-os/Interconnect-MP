@@ -72,6 +72,8 @@ private slots:
 
     void on_LSButton8_clicked();
 
+    void on_nextButton_clicked();
+
 private:
     Ui::MainWindow *ui;
 };

@@ -8,6 +8,7 @@
 
 QTextEditStream* textEditBuffer;
 std::streambuf* oldCoutStream;
+SystemSimulator sim;
 
 void redirectOutputToTextEdit(QTextEdit* edit) {
     textEditBuffer = new QTextEditStream(edit);
@@ -15,17 +16,12 @@ void redirectOutputToTextEdit(QTextEdit* edit) {
 }
 
 void executeSystem() {
-    SystemSimulator sim;
+
     sim.start();
 
-    /**
-    for (int i = 0; i < 10000; ++i) {
-        sim.step();
-        std::cout << "Presione enter para continuar..." << std::endl;
-        std::cin.get();
-    }*/
+    //while(sim.step()) {}
 
-    sim.waitForThreads();
+    //sim.waitForThreads();
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -33,7 +29,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    redirectOutputToTextEdit(ui->textEdit);
+    //redirectOutputToTextEdit(ui->textEdit);
     executeSystem();
 
 }
@@ -250,3 +246,9 @@ void MainWindow::on_LSButton8_clicked()
         ui->LSButton->setStyleSheet("background-color: green; color: white;");
 
 }
+
+void MainWindow::on_nextButton_clicked()
+{
+    sim.step();
+}
+

@@ -21,7 +21,7 @@ public:
     SystemSimulator();
     ~SystemSimulator();
     void start();
-    void step();
+    int step();
     void waitForThreads();
 
     // Puedes agregar getters para acceder a los estados si la interfaz los necesita

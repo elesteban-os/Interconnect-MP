@@ -2,7 +2,8 @@ QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-CONFIG += c++17
+CONFIG += c++17 console
+QMAKE_CXXFLAGS += -pthread
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -11,11 +12,21 @@ CONFIG += c++17
 SOURCES += \
     QTextEditStream.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    ../SystemSimulator.cpp \
+    ../units/memory.cpp \
+    ../units/executeunit.cpp \
+    ../units/messagemanagement.cpp \
+    ../units/clock.cpp \
+    ../units/messagetimer.cpp \
+    ../PEs/PE_class.cpp \
+    ../PEs/interpreter.cpp \
+    ../units/schedulers/scheduler.cpp
 
 HEADERS += \
     QTextEditStream.h \
-    mainwindow.h
+    mainwindow.h \
+    ../SystemSimulator.h
 
 FORMS += \
     mainwindow.ui
