@@ -60,6 +60,7 @@
         "map": "cpp",
         "set": "cpp",
         "cinttypes": "cpp",
-        "chrono": "cpp"
+        "chrono": "cpp",
+        "format": "cpp"
     }
 }

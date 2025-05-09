@@ -1,13 +1,40 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "QTextEditStream.h"
+#include "../SystemSimulator.h"
 #include <QFileDialog>
 #include <QMessageBox>
+#include <iostream>
+
+QTextEditStream* textEditBuffer;
+std::streambuf* oldCoutStream;
+
+void redirectOutputToTextEdit(QTextEdit* edit) {
+    textEditBuffer = new QTextEditStream(edit);
+    oldCoutStream = std::cout.rdbuf(textEditBuffer);
+}
+
+void executeSystem() {
+    SystemSimulator sim;
+    sim.start();
+
+    /**
+    for (int i = 0; i < 10000; ++i) {
+        sim.step();
+        std::cout << "Presione enter para continuar..." << std::endl;
+        std::cin.get();
+    }*/
+
+    sim.waitForThreads();
+}
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    redirectOutputToTextEdit(ui->textEdit);
+    executeSystem();
 
 }
 
@@ -147,7 +174,6 @@ void MainWindow::on_ICButton_clicked()
 {
         // Cambiar color del botón a verde
         ui->ICButton->setStyleSheet("background-color: green; color: white;");
-
 }
 
 void MainWindow::on_SMButton_clicked()
