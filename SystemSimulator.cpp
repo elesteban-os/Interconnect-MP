@@ -132,6 +132,7 @@ void* peTask(void* arg) {
 
     // Instrucciones terminadas
     std::cout << "Instrucciones terminadas para el PE " << id << std::endl;
+    data->pe->finished = true;
     
     return nullptr; // Terminar el hilo
 }

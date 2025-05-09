@@ -20,6 +20,7 @@ public:
     size_t nextCacheLine = 0; 
     int id;
     bool waiting;
+    bool finished = false;
     MessageManagementUnit* mmu;
     Cache cache;
     MessageTimer* messageTimer;
