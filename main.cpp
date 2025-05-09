@@ -124,6 +124,7 @@ void* peTask(void* arg) {
 
     // Instrucciones terminadas
     std::cout << "Instrucciones terminadas para el PE " << id << std::endl;
+    data->pe->finished = true;
     
     return nullptr; // Terminar el hilo
 }
@@ -149,26 +150,29 @@ int main() {
 
     // Crear una unidad de ejecución
     ExecuteUnit executeUnit(&operationScheduler, &responseScheduler, &mainMemory, &responseSchedulerMutex, &messageTimer);
-
+    int NUMPES = 4; // Número de PEs
     std::array<PE, 4> pes = {PE(0, &messageTimer), PE(1, &messageTimer), PE(2, &messageTimer), PE(3, &messageTimer)};
-    std::vector<PEThreadData> threadData(4); // Vector para almacenar los datos de los hilos
+    //std::array<PE, 1> pes = {PE(0, &messageTimer)};
+
+    
+    std::vector<PEThreadData> threadData(NUMPES); // Vector para almacenar los datos de los hilos
 
     // Crear instancia de la unidad de gestión de mensajes
     MessageManagementUnit messageManagementUnit(&operationScheduler, &responseScheduler, 
         &operationSchedulerMutex, &responseSchedulerMutex, &pes, &threadData, &messageTimer);
 
     // Asignar el MMU a cada PE
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < NUMPES; ++i) {
         pes.at(i).mmu = &messageManagementUnit;
     }
 
     // crear hilos
-    pthread_t threads[4];
+    pthread_t threads[NUMPES];
 
     
 
     // Actualizar todas las unidades varias veces  
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < NUMPES; ++i) {
         threadData[i] = {&pes[i], i, &messageManagementUnit, &messageTimer};
         pthread_create(&threads[i], nullptr, peTask, &threadData[i]);
     }
@@ -176,7 +180,8 @@ int main() {
     // Esperar un tiempo para que los hilos se inicien
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-    for (int i = 0; i < 10000; ++i) {
+    //for (int i = 0; i < 10000; ++i) {
+    while(!pes[0].finished || !pes[1].finished || !pes[2].finished || !pes[3].finished) {
         
         std::cout << "----- Ciclo: " << clock.getCycle() << " -----" << std::endl;
         messageTimer.update(); // Actualizar el temporizador de mensajes
@@ -185,14 +190,27 @@ int main() {
         messageManagementUnit.update(); // Actualizar la unidad de gestión de mensajes
         clock.update(); // Actualizar el reloj
         // Avanzar el ciclo presionando enter
-        std::cout << "Presione enter para continuar..." << std::endl;
-        std::cin.get();
+        //std::cout << "Presione enter para continuar..." << std::endl;
+        //std::cin.get();
     }
 
     // esperar a que todos los hilos terminen
     for (int i = 0; i < 4; ++i) {
         pthread_join(threads[i], nullptr);
     }
+
+    // Imprimir las caches de cada PE
+    for (int i = 0; i < NUMPES; ++i) {
+        std::cout << "Contenido de la caché del PE " << i << ": \n";
+        for (int j = 0; j < Cache::BLOCKS; ++j) {
+            std::cout << "Linea " << j << ", Validez: " << (int)pes[i].cache.validity[j] << " Datos: ";
+            for (int k = 0; k < Cache::BLOCK_SIZE; ++k) {
+                std::cout << (int)pes[i].cache.memory[j][k] << " " ;
+            }
+            std::cout << " \n" ;
+        }
+    }
+    std::cout << "Fin de la simulación." << std::endl;
 
 
     

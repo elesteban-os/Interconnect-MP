@@ -115,7 +115,7 @@ void PE::invalidateCacheLine(uint8_t CACHE_LINE, uint8_t SRC) {
     cache.invalidate(CACHE_LINE); // invalidar la línea de caché
 
     // enviar un mensaje de respuesta al PE que envió la invalidación
-    uint8_t STATUS = cache.isValid(CACHE_LINE); // estado de la línea de caché (1 = válida, 0 = inválida)
+    uint8_t STATUS = 1;
     uint8_t QoS = 0x0; // prioridad del mensaje por defecto 0
     INV_ACK msg = invAck(id, STATUS, QoS, SRC); // generar el mensaje de respuesta
 
@@ -199,16 +199,10 @@ void PE::getResponse(DATA_RESP_PE msg) {
         std::cout << "\n"; */
     } else if (msg.OPERATION_TYPE == OPERATION_TYPE_PE::RESP_WRITE) {
         writeResp(msg.STATUS); // Llamar a la función writeResp para manejar el estado de la escritura
-        this->waiting = false;
-        std::cout << "Waiting = " << this->waiting << "\n"; 
     } else if (msg.OPERATION_TYPE == OPERATION_TYPE_PE::CACHE_INVALIDATE) {
         invalidateCacheLine(msg.CACHE_LINE, msg.SRC);
-        this->waiting = false;
-        std::cout << "Waiting = " << this->waiting << "\n"; 
     } else if (msg.OPERATION_TYPE == OPERATION_TYPE_PE::INV_COMPLETE) {
         invComplete(msg.STATUS);
-        this->waiting = false;
-        std::cout << "Waiting = " << this->waiting << "\n"; 
     } else {
         std::cerr << "Error: Tipo de mensaje no reconocido.\n";
     }  

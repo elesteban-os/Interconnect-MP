@@ -140,21 +140,40 @@ void MessageManagementUnit::update() {
                         std::cout << "Invalidation message updated from PE: " << (int)response.pe_ID << ", DEST: " << (int)response.data->byte[0] << std::endl;
 
                         // Verificar si el número de invalidaciones es igual al número de PEs
+                        //if (this->invalidationMessages[i].numPEInvalidations == pes->size() - 1) {
                         if (this->invalidationMessages[i].numPEInvalidations == pes->size() - 1) {
                             // Enviar el mensaje de COMPLETE al PE
                             DATA_RESP_PE completePEMessage;
                             completePEMessage.OPERATION_TYPE = OPERATION_TYPE_PE::INV_COMPLETE; // Para que el PE sepa el tipo de funcion
                             completePEMessage.SRC = this->invalidationMessages[i].pe_id; // ID del PE que recibe el mensaje
+                            completePEMessage.STATUS = 0x1; // Status de la invalidación (OK)
 
                             // Obtener el ID del PE que recibe el mensaje por medio del response* y enviar el mensaje
-                            this->pes->at(this->invalidationMessages[i].pe_id).getResponse(completePEMessage); // Enviar el mensaje al PE correspondiente
-                            std::cout << "Complete message sent to PE: " << (int)this->invalidationMessages[i].pe_id << std::endl;
-                            // Notificar al hilo que la escritura ha terminado
-                            std::lock_guard<std::mutex> lock(this->peThreadData->at(this->invalidationMessages[i].pe_id).mtx);
-                            this->peThreadData->at(this->invalidationMessages[i].pe_id).responseReady = true;
-                            this->peThreadData->at(this->invalidationMessages[i].pe_id).cv.notify_one(); // Notificar al hilo que espera
+
+                            // Simular el tiempo de escritura
+                            //messageTimer->addMessage(1, [completePEMessage, this, i, response]() {
+                                this->pes->at(this->invalidationMessages[i].pe_id).getResponse(completePEMessage); // Enviar el mensaje al PE correspondiente
+                                std::cout << "Complete message sent to PE: " << (int)this->invalidationMessages[i].pe_id << std::endl;
+                                // Notificar al hilo que la escritura ha terminado
+                                std::lock_guard<std::mutex> lock(this->peThreadData->at(this->invalidationMessages[i].pe_id).mtx);
+                                this->peThreadData->at(this->invalidationMessages[i].pe_id).responseReady = true;
+                                this->peThreadData->at(this->invalidationMessages[i].pe_id).cv.notify_one(); // Notificar al hilo que espera
+
+                                // Eliminar el mensaje de invalidación de la lista
+                                for (auto it = this->invalidationMessages.begin(); it != this->invalidationMessages.end(); ++it) {
+                                    if (it->pe_id == response.pe_ID) {
+                                        this->invalidationMessages.erase(it);
+                                        break; // Salir del bucle después de eliminar el elemento
+                                    }
+                                }
+
+                           // });
+
+                            
+
+                            
+                            break;
                         }
-                        break;
                     }
                 }
 
@@ -174,14 +193,22 @@ void MessageManagementUnit::update() {
                 
                 // Enviar el mensaje a todos los PEs excepto al que lo envió
                 std::cout << "Sending invalidate message to all PEs except PE: " << (int)response.pe_ID << std::endl;
-                for (int i = 0; i < pes->size(); ++i) {
+                //for (int i = 0; i < pes->size(); ++i) {
+                for (int i = 0; i < 4; ++i) {
                     if (i != response.pe_ID) {
-                        std::cout << "Sending invalidate message to PE: " << (int)i << std::endl;
-                        pes->at(i).getResponse(invalidatePEMEssages); // Enviar el mensaje al PE correspondiente
-                        // Notificar al hilo que la escritura ha terminado
-                        std::lock_guard<std::mutex> lock(this->peThreadData->at(i).mtx);
-                        this->peThreadData->at(i).responseReady = true;
-                        this->peThreadData->at(i).cv.notify_one(); // Notificar al hilo que espera
+                        // Simular el tiempo de escritura
+                        //messageTimer->addMessage(1, [invalidatePEMEssages, i, this]() {
+                            std::cout << "Sending invalidate message to PE: " << (int)i << std::endl;
+                            pes->at(i).getResponse(invalidatePEMEssages); // Enviar el mensaje al PE correspondiente
+                        //});
+                        
+                        
+                        //// Notificar al hilo que la escritura ha terminado
+                        //std::lock_guard<std::mutex> lock(this->peThreadData->at(i).mtx);
+                        //this->peThreadData->at(i).responseReady = true;
+                        //this->peThreadData->at(i).cv.notify_one(); // Notificar al hilo que espera
+
+                        
                     }
                 }
                 std::cout << "Invalidate message sent to all PEs except PE: " << (int)response.pe_ID << std::endl;
