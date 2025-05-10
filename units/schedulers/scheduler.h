@@ -14,10 +14,9 @@ private:
 
 public:
     Scheduler();
-    Scheduler(ScheduleType type);
     ~Scheduler();
 
-    void setAlgorithm(ScheduleType type);
+    void setAlgorithm(int typeAlg);
     void addOperation(T new_operation);
     T getNextOperation();
     T popQueue();

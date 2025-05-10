@@ -1,8 +1,8 @@
 #include "generate_txt.h"
 
-void saveVectorToFile(const std::vector<int>& data) {
+void saveVectorToFile(const std::vector<int>& data, const std::string& filename) {
     // Abrir/crear el archivo en modo escritura
-    std::ofstream outFile("data.txt");
+    std::ofstream outFile(filename);
     
     // Verificar si el archivo se abrió correctamente
     if (!outFile.is_open()) {

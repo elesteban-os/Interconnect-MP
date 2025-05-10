@@ -10,11 +10,7 @@ Scheduler<T>::Scheduler() {
     algorithm = new FIFO<T>(); // Default to FIFO algorithm
 }
 
-// Constructor with algorithm type
-template <typename T>
-Scheduler<T>::Scheduler(ScheduleType type) {
-    setAlgorithm(type);
-}
+
 
 // Destructor
 template <typename T>
@@ -26,10 +22,13 @@ Scheduler<T>::~Scheduler() {
 
 // Set the scheduling algorithm
 template <typename T>
-void Scheduler<T>::setAlgorithm(ScheduleType type) {
+void Scheduler<T>::setAlgorithm(int typeAlg) {
     if (algorithm != nullptr) {
         delete algorithm;
     }
+
+    ScheduleType type = (typeAlg == 1) ? ScheduleType::FIFO : ScheduleType::PRIORITY;
+
     switch (type) {
         case ScheduleType::FIFO:
             algorithm = new FIFO<T>();

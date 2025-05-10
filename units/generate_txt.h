@@ -5,6 +5,6 @@
 #include <fstream>
 #include <iostream>
 
-void saveVectorToFile(const std::vector<int>& data);
+void saveVectorToFile(const std::vector<int>& data, const std::string& filename);
 
 #endif // GENERATE_TXT_H

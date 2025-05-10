@@ -10,6 +10,7 @@
 #include "PEs/PE_class.h"
 #include "units/clock.h"
 #include "units/messagetimer.h"
+#include "units/generate_txt.h"
 
 
 void* peTask(void* arg) {
@@ -181,8 +182,36 @@ int main() {
     // Esperar un tiempo para que los hilos se inicien
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
+        // Preguntar en consola por el tipo de calendarizador preferido:
+    std::cout << "Seleccione el tipo de calendarizador preferido:\n";
+    std::cout << "1. Calendarizador FIFO\n";
+    std::cout << "2. Calendarizador Priority\n";
+    std::cout << "Ingrese su elección (1 o 2): ";
+
+    int schedulerChoice;
+    std::cin >> schedulerChoice;
+
+    // Validar la entrada del usuario
+    if (schedulerChoice == 1) {
+        std::cout << "Se seleccionó el calendarizador FIFO.\n";
+        operationScheduler.setAlgorithm(1);
+        responseScheduler.setAlgorithm(1);
+        // Configurar el calendarizador de operaciones
+        // (Puedes agregar lógica específica aquí si es necesario)
+    } else if (schedulerChoice == 2) {
+        std::cout << "Se seleccionó el calendarizador Priority.\n";
+        operationScheduler.setAlgorithm(2);
+        responseScheduler.setAlgorithm(2);
+        // Configurar el calendarizador de respuestas
+        // (Puedes agregar lógica específica aquí si es necesario)
+    } else {
+        std::cout << "Opción no válida. Se usará el calendarizador predeterminado.\n";
+        // Configurar un calendarizador predeterminado si es necesario
+    }
+        
+
     //for (int i = 0; i < 10000; ++i) {
-    while(!pes[0].finished || !pes[1].finished || !pes[2].finished || !pes[3].finished) {
+    while(!pes[0].finished || !pes[1].finished || !pes[2].finished || !pes[3].finished || !pes[4].finished || !pes[5].finished || !pes[6].finished || !pes[7].finished) {
         
         std::cout << "----- Ciclo: " << clock.getCycle() << " -----" << std::endl;
         messageTimer.update(); // Actualizar el temporizador de mensajes
@@ -196,7 +225,7 @@ int main() {
     }
 
     // esperar a que todos los hilos terminen
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < NUMPES; ++i) {
         pthread_join(threads[i], nullptr);
     }
 
@@ -214,7 +243,26 @@ int main() {
     std::cout << "Fin de la simulación." << std::endl;
 
 
-    
+    saveVectorToFile(messageManagementUnit.interconnectData, "interconnect_data.txt");
+    saveVectorToFile(messageManagementUnit.interconnectDataBytes, "interconnect_data_bytes.txt");
+    saveVectorToFile(*messageManagementUnit.interconnectDataPEs, "interconnect_data_PEs.txt");
+
+
+    /*
+    // Imprimir el vector de interconnectData
+    std::cout << "Contenido del vector de interconnectData: ";
+    for (const auto& data : messageManagementUnit.interconnectData) {
+        std::cout << data << " ";
+    }
+    std::cout << std::endl;
+
+    // Imprimir el vector de interconnectDataBytes
+    std::cout << "Contenido del vector de interconnectDataBytes: ";
+    for (const auto& data : messageManagementUnit.interconnectDataBytes) {
+        std::cout << data << " ";
+    }
+    std::cout << std::endl;
+    */
 
     
     /*

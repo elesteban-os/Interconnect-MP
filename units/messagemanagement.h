@@ -30,10 +30,15 @@ class MessageManagementUnit {
         std::vector<PEThreadData> *peThreadData;
         std::vector<invalidation_message> invalidationMessages;
         MessageTimer* messageTimer;
-        std::vector<int> interconnectData;
+        
         std::mutex interconnectDataMutex; // Mutex for interconnect data
+        std::mutex interconnectDataBytesMutex; // Mutex for interconnect data
+        std::mutex interconnectPEsMutex; // Mutex for interconnect data
 
     public:
+        std::vector<int> interconnectData;
+        std::vector<int> interconnectDataBytes;
+        std::vector<int>* interconnectDataPEs;
         // Constructor
         MessageManagementUnit(Scheduler<operation>* opScheduler, Scheduler<data_resp>* respScheduler, 
                               std::mutex* opSchedulerMutex, std::mutex* respSchedulerMutex);
@@ -48,7 +53,13 @@ class MessageManagementUnit {
         void processMessage(BROADCAST_INVALIDATE readMessage);
         void processMessage(INV_ACK readMessage);
 
-        void addUnitInterconnectData(int data);
+        void addUnitInterconnectData();
+        void addElementInterconnectData(int newData);
+
+        void addElementInterconnectDataBytes(int newData);
+        void addUnitInterconnectDataBytes(int bytes);
+
+        void addUnitInterconnectDataPEs(int pe_id);
 
         void update();
 };

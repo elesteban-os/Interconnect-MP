@@ -10,6 +10,8 @@ MessageManagementUnit::MessageManagementUnit(Scheduler<operation>* opScheduler, 
     this->responseSchedulerMutex = respSchedulerMutex;
     this->operationScheduler = opScheduler;
     this->responseScheduler = respScheduler;
+    this->interconnectDataPEs = new std::vector<int>(pes->size(), 0); // Initialize the interconnectDataPEs vector with size equal to the number of PEs
+
 }
 
 MessageManagementUnit::MessageManagementUnit(Scheduler<operation>* opScheduler, Scheduler<data_resp>* respScheduler, 
@@ -22,16 +24,48 @@ MessageManagementUnit::MessageManagementUnit(Scheduler<operation>* opScheduler, 
         this->pes = pes;
         this->peThreadData = peeThreadData;
         this->messageTimer = messageTimer;
+        this->interconnectDataPEs = new std::vector<int>(pes->size(), 0); // Initialize the interconnectDataPEs vector with size equal to the number of PEs
 }
 
 // Anadir una unidad al ultimo elemento del vector de interconnectData
-void MessageManagementUnit::addUnitInterconnectData(int data) {
+void MessageManagementUnit::addUnitInterconnectData() {
     // Proteger el acceso al vector con un mutex
     std::lock_guard<std::mutex> lock(interconnectDataMutex); // Lock the mutex
-
-    
+    int lastData = this->interconnectData.at(this->interconnectData.size() - 1);
+    this->interconnectData.at(this->interconnectData.size() - 1) = lastData + 1; 
     
     //this->interconnectData->at() = this->interconnectData[this->interconnectData.size() - 1] + 1;
+}
+
+// Meter un nuevo elemento al vector de interconnectData
+void MessageManagementUnit::addElementInterconnectData(int newData) {
+    // Proteger el acceso al vector con un mutex
+    std::lock_guard<std::mutex> lock(interconnectDataMutex); // Lock the mutex
+    this->interconnectData.push_back(newData);
+}
+
+// Anadir una unidad al ultimo elemento del vector de interconnectData
+void MessageManagementUnit::addUnitInterconnectDataBytes(int bytes) {
+    // Proteger el acceso al vector con un mutex
+    std::lock_guard<std::mutex> lock(interconnectDataBytesMutex); // Lock the mutex
+    int lastData = this->interconnectDataBytes.at(this->interconnectDataBytes.size() - 1);
+    this->interconnectDataBytes.at(this->interconnectDataBytes.size() - 1) = lastData + bytes; 
+    
+    //this->interconnectData->at() = this->interconnectData[this->interconnectData.size() - 1] + 1;
+}
+
+// Meter un nuevo elemento al vector de interconnectData
+void MessageManagementUnit::addElementInterconnectDataBytes(int newData) {
+    // Proteger el acceso al vector con un mutex
+    std::lock_guard<std::mutex> lock(interconnectDataBytesMutex); // Lock the mutex
+    this->interconnectDataBytes.push_back(newData);
+}
+
+void MessageManagementUnit::addUnitInterconnectDataPEs(int pe_id) {
+    // Proteger el acceso al vector con un mutex
+    std::lock_guard<std::mutex> lock(interconnectPEsMutex); // Lock the mutex
+    int lastData = this->interconnectDataPEs->at(pe_id);
+    this->interconnectDataPEs->at(pe_id) = lastData + 1; 
 }
 
 
@@ -52,8 +86,11 @@ void MessageManagementUnit::processMessage(READ_MEM readMessage) {
         std::lock_guard<std::mutex> lock(*operationSchedulerMutex); // Lock the mutex
         // Add the operation to the scheduler
         this->operationScheduler->addOperation(newOperation);
+        addUnitInterconnectData(); // Add the unit to the interconnect data
+        addUnitInterconnectDataBytes(1);
+        addUnitInterconnectDataPEs(newOperation.pe_ID); // Add the PE ID to the interconnect data
     });
-    operationScheduler->addOperation(newOperation);
+    //operationScheduler->addOperation(newOperation);
 }
 
 // Method for processing WRITE_MEM messages
@@ -86,6 +123,9 @@ void MessageManagementUnit::processMessage(WRITE_MEM writeMessage) {
         std::lock_guard<std::mutex> lock(*operationSchedulerMutex); // Lock the mutex
         // Add the operation to the scheduler
         this->operationScheduler->addOperation(newOperation);
+        addUnitInterconnectData();
+        addUnitInterconnectDataBytes(newOperation.blocks * 4 + 1); 
+        addUnitInterconnectDataPEs(newOperation.pe_ID); // Add the PE ID to the interconnect data
     });
     //operationScheduler->addOperation(newOperation);
 }
@@ -102,6 +142,9 @@ void MessageManagementUnit::processMessage(BROADCAST_INVALIDATE readMessage) {
 
     // Add the new response to the scheduler
     responseScheduler->addOperation(newResponse);
+    addUnitInterconnectData();
+    addUnitInterconnectDataBytes(1); 
+    addUnitInterconnectDataPEs(newResponse.pe_ID); // Add the PE ID to the interconnect data
 
     std::cout << "Processing BROADCAST_INVALIDATE message from PE: " << (int)readMessage.SRC << std::endl;
 }
@@ -119,6 +162,9 @@ void MessageManagementUnit::processMessage(INV_ACK readMessage) {
 
     // Add the new response to the scheduler
     responseScheduler->addOperation(newResponse);
+    addUnitInterconnectData();
+    addUnitInterconnectDataBytes(1); 
+    addUnitInterconnectDataPEs(newResponse.pe_ID); // Add the PE ID to the interconnect data
 
     std::cout << "Processing INV_ACK message from PE: " << (int)readMessage.SRC << std::endl;
 }
@@ -128,6 +174,10 @@ void MessageManagementUnit::processMessage(INV_ACK readMessage) {
 // Metodo para actualizar la unidad con los mensajes de respuesta
 void MessageManagementUnit::update() {
     std::lock_guard<std::mutex> lock(*responseSchedulerMutex); // Lock the mutex
+
+    // Nuevo elemento en el vector de interconnectData
+    addElementInterconnectData(0);
+    addElementInterconnectDataBytes(0);
     
     // Comprobar si hay mensajes en la cola de respuestas
     data_resp response = responseScheduler->getNextOperation();
@@ -142,16 +192,20 @@ void MessageManagementUnit::update() {
                 // Inv Ack: SRC, DEST, STATUS, QoS
                 std::cout << "Cache ACK received from PE:" << (int)response.pe_ID << " with status: " << (int)response.status << std::endl;
                 // Procesar el ACK y contar hasta que se haga un COMPLETE (calendarizarlo en respuestas y colocar QoS) (SRC y DEST)
-
+                addUnitInterconnectData(); // Add the unit to the interconnect data
+                
                 // Verificar si el PE_ID esta en la lista de invalidaciones
                 for (int i = 0; i < this->invalidationMessages.size(); ++i) {
                     if (this->invalidationMessages[i].pe_id == response.data->byte[0]) {
                         this->invalidationMessages[i].numPEInvalidations++;
                         std::cout << "Invalidation message updated from PE: " << (int)response.pe_ID << ", DEST: " << (int)response.data->byte[0] << std::endl;
 
+                        addUnitInterconnectData(); // Add the unit to the interconnect data
+                        addUnitInterconnectDataBytes(1); 
+                        
                         // Verificar si el número de invalidaciones es igual al número de PEs
                         //if (this->invalidationMessages[i].numPEInvalidations == pes->size() - 1) {
-                        if (this->invalidationMessages[i].numPEInvalidations == pes->size() - 1) {
+                        if (this->invalidationMessages[i].numPEInvalidations == 8 - 1) {
                             // Enviar el mensaje de COMPLETE al PE
                             DATA_RESP_PE completePEMessage;
                             completePEMessage.OPERATION_TYPE = OPERATION_TYPE_PE::INV_COMPLETE; // Para que el PE sepa el tipo de funcion
@@ -168,7 +222,9 @@ void MessageManagementUnit::update() {
                                 std::lock_guard<std::mutex> lock(this->peThreadData->at(this->invalidationMessages[i].pe_id).mtx);
                                 this->peThreadData->at(this->invalidationMessages[i].pe_id).responseReady = true;
                                 this->peThreadData->at(this->invalidationMessages[i].pe_id).cv.notify_one(); // Notificar al hilo que espera
-
+                                addUnitInterconnectData(); // Add the unit to the interconnect data
+                                addUnitInterconnectDataBytes(1); 
+                                addUnitInterconnectDataPEs(this->invalidationMessages[i].pe_id); // Add the PE ID to the interconnect data
                                 // Eliminar el mensaje de invalidación de la lista
                                 for (auto it = this->invalidationMessages.begin(); it != this->invalidationMessages.end(); ++it) {
                                     if (it->pe_id == response.pe_ID) {
@@ -204,12 +260,15 @@ void MessageManagementUnit::update() {
                 // Enviar el mensaje a todos los PEs excepto al que lo envió
                 std::cout << "Sending invalidate message to all PEs except PE: " << (int)response.pe_ID << std::endl;
                 //for (int i = 0; i < pes->size(); ++i) {
-                for (int i = 0; i < 4; ++i) {
+                for (int i = 0; i < 8; ++i) {
                     if (i != response.pe_ID) {
                         // Simular el tiempo de escritura
                         //messageTimer->addMessage(1, [invalidatePEMEssages, i, this]() {
                             std::cout << "Sending invalidate message to PE: " << (int)i << std::endl;
                             pes->at(i).getResponse(invalidatePEMEssages); // Enviar el mensaje al PE correspondiente
+                            addUnitInterconnectData();
+                            addUnitInterconnectDataBytes(1);
+                            addUnitInterconnectDataPEs(i); // Add the PE ID to the interconnect data 
                         //});
                         
                         
@@ -261,6 +320,9 @@ void MessageManagementUnit::update() {
                         std::lock_guard<std::mutex> lock(this->peThreadData->at(response.pe_ID).mtx);
                         this->peThreadData->at(response.pe_ID).responseReady = true;
                         this->peThreadData->at(response.pe_ID).cv.notify_one(); // Notificar al hilo que espera
+                        addUnitInterconnectData();
+                        addUnitInterconnectDataBytes(response.blocks * 4 + 1); 
+                        addUnitInterconnectDataPEs(response.pe_ID); // Add the PE ID to the interconnect data
                     });
                 }
                 break;
@@ -282,7 +344,9 @@ void MessageManagementUnit::update() {
                     std::lock_guard<std::mutex> lock(this->peThreadData->at(response.pe_ID).mtx);
                     this->peThreadData->at(response.pe_ID).responseReady = true;
                     this->peThreadData->at(response.pe_ID).cv.notify_one(); // Notificar al hilo que espera
-                    
+                    addUnitInterconnectData();   
+                    addUnitInterconnectDataBytes(1);
+                    addUnitInterconnectDataPEs(response.pe_ID); // Add the PE ID to the interconnect data                
                     std::cout << "Write operation completed for PE: " << response.pe_ID << " with STATUS: " << (int)response.status << std::endl;
                 });
 
