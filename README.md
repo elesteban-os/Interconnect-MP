@@ -14,6 +14,7 @@ This project main objective is to apply the concepts of computer architecture II
 * Implemented in **C++** using **multithreading** capabilities (C++20).
 * Developed and compiled using **g++ 13.3.0** on **Linux (Ubuntu)**.
 * Interface created using **Qt Creator**.
+* Graphics were made with plotly in **Python**.
 * Includes support for two arbitration schemes:
 
   * FIFO (ignores QoS).
@@ -21,7 +22,7 @@ This project main objective is to apply the concepts of computer architecture II
 
 * Simulation of message transfer times and memory access delays.
 * Step-by-step (stepping) simulation support.
-* Final report includes statistics for bandwidth, traffic, and METRIC TO BE DECIDE.
+* Final report includes statistics for bandwidth, traffic, and amount of messages of each PE.
 
 ## 🧱 Project Structure
 
@@ -59,7 +60,7 @@ After each workload execution, the system generates:
 
 * Bandwidth graphs.
 * Traffic charts.
-* METRIC TO BE DECIDED
+* Amount of messages of each PE
 
 ## ⚙️ Compilation Instructions
 
@@ -68,6 +69,7 @@ After each workload execution, the system generates:
 * Ubuntu Linux OS
 * Qt Creator (recommended for building the interface)
 * g++ 13.3.0 or compatible compiler
+* Python 3.8.10
 
 ### Steps:
 
@@ -75,14 +77,13 @@ After each workload execution, the system generates:
 2. Open the project `.pro` file in **Qt Creator**.
 3. Configure the kit (ensure it uses g++ 13.3.0).
 4. Build the project via the **Build** menu.
-5. Run the simulation from within Qt Creator or using the compiled executable from terminal.
+5. Run the simulation from the main.py file or in the terminal.
 
 ### Terminal (alternative):
 
+In the terminal on the main.py file:
+
 ```bash
-mkdir build && cd build
-cmake ..
-make
-./main
+/usr/bin/python3 main.py
 ```
 
