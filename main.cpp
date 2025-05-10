@@ -150,8 +150,9 @@ int main() {
 
     // Crear una unidad de ejecución
     ExecuteUnit executeUnit(&operationScheduler, &responseScheduler, &mainMemory, &responseSchedulerMutex, &messageTimer);
-    int NUMPES = 4; // Número de PEs
-    std::array<PE, 4> pes = {PE(0, &messageTimer), PE(1, &messageTimer), PE(2, &messageTimer), PE(3, &messageTimer)};
+    int NUMPES = 8; // Número de PEs
+    std::array<PE, 8> pes = {PE(0, &messageTimer), PE(1, &messageTimer), PE(2, &messageTimer), PE(3, &messageTimer), 
+        PE(4, &messageTimer), PE(5, &messageTimer) , PE(6, &messageTimer), PE(7, &messageTimer)};
     //std::array<PE, 1> pes = {PE(0, &messageTimer)};
 
     

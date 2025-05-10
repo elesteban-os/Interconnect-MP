@@ -26,10 +26,12 @@ class MessageManagementUnit {
         Scheduler<data_resp>* responseScheduler;
         std::mutex* operationSchedulerMutex; // Mutex for thread safety
         std::mutex* responseSchedulerMutex;  // Mutex for thread safety
-        std::array<PE, 4> *pes;
+        std::array<PE, 8> *pes;
         std::vector<PEThreadData> *peThreadData;
         std::vector<invalidation_message> invalidationMessages;
         MessageTimer* messageTimer;
+        std::vector<int> interconnectData;
+        std::mutex interconnectDataMutex; // Mutex for interconnect data
 
     public:
         // Constructor
@@ -37,7 +39,7 @@ class MessageManagementUnit {
                               std::mutex* opSchedulerMutex, std::mutex* respSchedulerMutex);
 
         MessageManagementUnit(Scheduler<operation>* opScheduler, Scheduler<data_resp>* respScheduler, 
-                              std::mutex* opSchedulerMutex, std::mutex* respSchedulerMutex, std::array<PE, 4> *pes, 
+                              std::mutex* opSchedulerMutex, std::mutex* respSchedulerMutex, std::array<PE, 8> *pes, 
                               std::vector<PEThreadData>* peeThreadData, MessageTimer* messageTimer);
 
         // Methods for processing different message types
@@ -46,10 +48,7 @@ class MessageManagementUnit {
         void processMessage(BROADCAST_INVALIDATE readMessage);
         void processMessage(INV_ACK readMessage);
 
-        void processMessageTiming(WRITE_MEM writeMessage);
-        void processMessageTiming(READ_MEM readMessage);
-        void processMessageTiming(BROADCAST_INVALIDATE readMessage);
-        void processMessageTiming(INV_ACK readMessage);
+        void addUnitInterconnectData(int data);
 
         void update();
 };

@@ -7,7 +7,9 @@ import subprocess
 import threading
 
 class ControladorC:
-    def __init__(self):
+    def __init__(self, text_edit):
+        self.text_edit = text_edit
+        self.process = None
         pass
 
     def run(self):
@@ -17,7 +19,7 @@ class ControladorC:
         # Ejecutar la funcion execute() de la clase ControladorC por medio de un hilo
         thread = threading.Thread(target=self.execute)
         thread.start()
-
+        
         
         
         pass
@@ -33,7 +35,10 @@ class ControladorC:
         )
         # Leer la salida del proceso en tiempo real (opcional)
         for line in self.process.stdout:
-            print(line, end="")
+             # Usar QtWidgets.QApplication.processEvents() para actualizar la UI
+            QtWidgets.QApplication.processEvents()
+            # Agregar el texto al QTextEdit
+            self.text_edit.append(line.strip())
 
     def sendEnterToTerminal(self):
         # Enviar una letra al proceso en ejecución
@@ -45,7 +50,7 @@ class MyApp(QtWidgets.QMainWindow):
         def __init__(self):
             super(MyApp, self).__init__()
             loadUi("mainwindow.ui", self)
-            self.controlador = ControladorC()
+            self.controlador = ControladorC(self.textEdit)
 
 
             # Conectar el botón a la función

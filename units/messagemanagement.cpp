@@ -13,7 +13,7 @@ MessageManagementUnit::MessageManagementUnit(Scheduler<operation>* opScheduler, 
 }
 
 MessageManagementUnit::MessageManagementUnit(Scheduler<operation>* opScheduler, Scheduler<data_resp>* respScheduler, 
-                                             std::mutex* opSchedulerMutex, std::mutex* respSchedulerMutex, std::array<PE, 4>* pes, 
+                                             std::mutex* opSchedulerMutex, std::mutex* respSchedulerMutex, std::array<PE, 8>* pes, 
                                              std::vector<PEThreadData>* peeThreadData, MessageTimer* messageTimer) {
         this->operationSchedulerMutex = opSchedulerMutex;
         this->responseSchedulerMutex = respSchedulerMutex;
@@ -22,6 +22,16 @@ MessageManagementUnit::MessageManagementUnit(Scheduler<operation>* opScheduler, 
         this->pes = pes;
         this->peThreadData = peeThreadData;
         this->messageTimer = messageTimer;
+}
+
+// Anadir una unidad al ultimo elemento del vector de interconnectData
+void MessageManagementUnit::addUnitInterconnectData(int data) {
+    // Proteger el acceso al vector con un mutex
+    std::lock_guard<std::mutex> lock(interconnectDataMutex); // Lock the mutex
+
+    
+    
+    //this->interconnectData->at() = this->interconnectData[this->interconnectData.size() - 1] + 1;
 }
 
 
