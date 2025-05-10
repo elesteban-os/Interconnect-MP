@@ -190,8 +190,8 @@ int main() {
         messageManagementUnit.update(); // Actualizar la unidad de gestión de mensajes
         clock.update(); // Actualizar el reloj
         // Avanzar el ciclo presionando enter
-        //std::cout << "Presione enter para continuar..." << std::endl;
-        //std::cin.get();
+        std::cout << "Presione enter para continuar..." << std::endl;
+        std::cin.get();
     }
 
     // esperar a que todos los hilos terminen
